@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="?android:colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Welcome — set up your allowance"
+            android:textSize="18sp"
+            android:layout_marginBottom="12dp"
+            android:textColor="?attr/bwme_onSurface"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Allocated amount (for chosen period)"
+            android:textColor="?attr/bwme_onSurface"/>
+
+        <EditText
+            android:id="@+id/onboardingAllocated"
+            android:hint="e.g. 4000"
+            android:inputType="numberDecimal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Allocation period"
+            android:layout_marginTop="6dp"
+            android:textColor="?attr/bwme_onSurface"/>
+
+        <Spinner
+            android:id="@+id/onboardingPeriodSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Calculated daily allowance (preview)"
+            android:layout_marginTop="6dp"
+            android:textColor="?attr/bwme_onSurface"/>
+
+        <EditText
+            android:id="@+id/onboardingCalculatedDaily"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:focusable="false"
+            android:layout_marginBottom="18dp"/>
+
+        <Button
+            android:id="@+id/onboardingContinueBtn"
+            android:text="Continue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="You can change this later in Profile."
+            android:layout_marginTop="12dp"
+            android:textColor="?attr/bwme_onSurface"
+            android:textSize="12sp"/>
+
+    </LinearLayout>
+</ScrollView>

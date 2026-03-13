@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="bwme_surface"
+        format="color"/>
+
+    <attr name="bwme_onSurface"
+        format="color"/>
+
+</resources>

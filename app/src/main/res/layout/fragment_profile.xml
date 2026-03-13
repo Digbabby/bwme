@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/profile_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="?android:colorBackground"
+    tools:context=".ProfileFragment">
+
+    <TextView
+        android:id="@+id/labelAllocated"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Allocated Allowance (for chosen period)"
+        android:textStyle="bold"
+        android:textColor="?attr/bwme_onSurface"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <EditText
+        android:id="@+id/profileMonthly"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Enter allocated allowance (numeric)"
+        android:inputType="numberDecimal"
+        app:layout_constraintTop_toBottomOf="@id/labelAllocated"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:id="@+id/labelAllocationType"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Allocation Type"
+        android:textColor="?attr/bwme_onSurface"
+        app:layout_constraintTop_toBottomOf="@id/profileMonthly"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="12dp"/>
+
+    <Spinner
+        android:id="@+id/profilePeriodSpinner"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toBottomOf="@id/profileMonthly"
+        app:layout_constraintStart_toEndOf="@id/labelAllocationType"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginStart="8dp"/>
+
+    <TextView
+        android:id="@+id/labelCalculated"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Calculated Daily Allowance"
+        android:textColor="?attr/bwme_onSurface"
+        app:layout_constraintTop_toBottomOf="@id/profilePeriodSpinner"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="12dp"/>
+
+    <EditText
+        android:id="@+id/profileAllocation"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:enabled="false"
+        android:focusable="false"
+        app:layout_constraintTop_toBottomOf="@id/profilePeriodSpinner"
+        app:layout_constraintStart_toEndOf="@id/labelCalculated"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginStart="8dp"/>
+
+    <Button
+        android:id="@+id/profileSave"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Save"
+        app:layout_constraintTop_toBottomOf="@id/profileAllocation"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"/>
+
+    <Button
+        android:id="@+id/profileReset"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Reset Expenses"
+        app:layout_constraintTop_toBottomOf="@id/profileSave"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"/>
+
+    <Switch
+        android:id="@+id/switchDarkMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Dark Mode"
+        android:textColor="?attr/bwme_onSurface"
+        app:layout_constraintTop_toBottomOf="@id/profileReset"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="16dp"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
