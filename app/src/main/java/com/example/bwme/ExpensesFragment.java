@@ -11,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -49,6 +50,7 @@ public class ExpensesFragment extends Fragment {
     private static final String PREFS_NAME = MainActivity.PREFS;
     private Double pendingAmount = null;
     private String pendingDesc = null;
+    private String pendingCategory = "Other";
 
     private ActivityResultLauncher<String> requestLocation;
 
@@ -151,13 +153,14 @@ public class ExpensesFragment extends Fragment {
         for (Expense e : expenses) {
             total += getAmountSafe(e);
         }
-        totalText.setText("Total: ₱ " + String.format(Locale.getDefault(), "%.2f", total));
+        if (totalText != null)
+            totalText.setText("Total: ₱ " + String.format(Locale.getDefault(), "%.2f", total));
 
         int percent = 0;
         if (allocation > 0.0) {
             percent = (int) ((total / allocation) * 100.0);
         }
-        percentText.setText("Used of allocation: " + percent + "%");
+        if (percentText != null) percentText.setText("Used of allocation: " + percent + "%");
 
         if (rv.getAdapter() != null) rv.getAdapter().notifyDataSetChanged();
     }
@@ -167,6 +170,15 @@ public class ExpensesFragment extends Fragment {
         View v = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_expense, null);
         final EditText amountEt = v.findViewById(R.id.dialogAmount);
         final EditText descEt = v.findViewById(R.id.dialogDesc);
+        final Spinner categorySpinner = v.findViewById(R.id.dialogCategory);
+
+        String[] categories = new String[] {"Food", "Transport", "Entertainment", "Utilities", "Other"};
+        android.widget.ArrayAdapter<String> adapterSpinner = new android.widget.ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, categories);
+        adapterSpinner.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        if (categorySpinner != null) {
+            categorySpinner.setAdapter(adapterSpinner);
+            categorySpinner.setSelection(4);
+        }
 
         dialog.setView(v)
                 .setPositiveButton("Add", new DialogInterface.OnClickListener() {
@@ -178,6 +190,11 @@ public class ExpensesFragment extends Fragment {
                         String desc = descEt.getText() != null ? descEt.getText().toString() : "";
                         if (desc.trim().isEmpty()) desc = "Expense";
 
+                        String category = "Other";
+                        if (categorySpinner != null && categorySpinner.getSelectedItem() != null) {
+                            category = categorySpinner.getSelectedItem().toString();
+                        }
+
                         if (amt == null || amt <= 0.0) {
                             Toast.makeText(requireContext(), "Enter valid amount", Toast.LENGTH_SHORT).show();
                             return;
@@ -185,6 +202,7 @@ public class ExpensesFragment extends Fragment {
 
                         pendingAmount = amt;
                         pendingDesc = desc;
+                        pendingCategory = category;
 
                         boolean hasLoc = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
                                 == PackageManager.PERMISSION_GRANTED;
@@ -206,6 +224,7 @@ public class ExpensesFragment extends Fragment {
         if (amt == null) {
             pendingAmount = null;
             pendingDesc = null;
+            pendingCategory = "Other";
             return;
         }
 
@@ -221,6 +240,7 @@ public class ExpensesFragment extends Fragment {
                             } finally {
                                 pendingAmount = null;
                                 pendingDesc = null;
+                                pendingCategory = "Other";
                             }
                         }
                     })
@@ -230,12 +250,14 @@ public class ExpensesFragment extends Fragment {
                             addExpenseToList(null);
                             pendingAmount = null;
                             pendingDesc = null;
+                            pendingCategory = "Other";
                         }
                     });
         } catch (Exception ex) {
             addExpenseToList(null);
             pendingAmount = null;
             pendingDesc = null;
+            pendingCategory = "Other";
         }
     }
 
@@ -243,12 +265,13 @@ public class ExpensesFragment extends Fragment {
         final Double amt = pendingAmount;
         if (amt == null) return;
         final String desc = pendingDesc != null ? pendingDesc : "Expense";
+        final String category = pendingCategory != null ? pendingCategory : "Other";
 
         Expense e;
         if (locationPair != null) {
-            e = new Expense(amt, desc, System.currentTimeMillis(), locationPair.first, locationPair.second);
+            e = new Expense(amt, desc, System.currentTimeMillis(), locationPair.first, locationPair.second, category);
         } else {
-            e = new Expense(amt, desc, System.currentTimeMillis(), null, null);
+            e = new Expense(amt, desc, System.currentTimeMillis(), null, null, category);
         }
 
         expenses.add(0, e);
@@ -260,6 +283,10 @@ public class ExpensesFragment extends Fragment {
         try {
             Toast.makeText(requireContext(), "Saved expense: ₱ " + String.format(Locale.getDefault(), "%.2f", amt), Toast.LENGTH_SHORT).show();
         } catch (Exception ignored) {}
+
+        pendingAmount = null;
+        pendingDesc = null;
+        pendingCategory = "Other";
     }
 
     private double getAmountSafe(Expense e) {

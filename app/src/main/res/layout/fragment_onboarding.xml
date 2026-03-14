@@ -46,19 +46,37 @@
             android:layout_marginBottom="12dp"/>
 
         <TextView
+            android:id="@+id/labelCalculatedAllowance"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Calculated daily allowance (preview)"
+            android:text="Calculated Allowance"
+            android:layout_marginTop="12dp"
+            android:textColor="?attr/bwme_onSurface"
+            android:textStyle="bold"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Calculated Period Type"
             android:layout_marginTop="6dp"
             android:textColor="?attr/bwme_onSurface"/>
 
-        <EditText
-            android:id="@+id/onboardingCalculatedDaily"
+        <Spinner
+            android:id="@+id/onboardingCalculatedPeriodSpinner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:enabled="false"
-            android:focusable="false"
-            android:layout_marginBottom="18dp"/>
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/onboardingCalculatedValue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="16sp"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:layout_marginBottom="18dp"
+            android:textColor="?attr/bwme_onSurface" />
 
         <Button
             android:id="@+id/onboardingContinueBtn"

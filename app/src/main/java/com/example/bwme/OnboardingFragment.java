@@ -10,6 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
 import androidx.fragment.app.Fragment;
+
 import java.util.Calendar;
 import java.util.Locale;
 
@@ -17,7 +18,8 @@ public class OnboardingFragment extends Fragment {
 
     private EditText allocatedEt;
     private Spinner periodSpinner;
-    private EditText previewDailyEt;
+    private Spinner calculatedPeriodSpinner;
+    private TextView calculatedValueTv;
     private Button continueBtn;
     private final String prefsName = MainActivity.PREFS;
 
@@ -30,15 +32,25 @@ public class OnboardingFragment extends Fragment {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         allocatedEt = view.findViewById(R.id.onboardingAllocated);
         periodSpinner = view.findViewById(R.id.onboardingPeriodSpinner);
-        previewDailyEt = view.findViewById(R.id.onboardingCalculatedDaily);
+        calculatedPeriodSpinner = view.findViewById(R.id.onboardingCalculatedPeriodSpinner);
+        calculatedValueTv = view.findViewById(R.id.onboardingCalculatedValue);
         continueBtn = view.findViewById(R.id.onboardingContinueBtn);
 
         String[] options = new String[] {"Daily", "Weekly", "Monthly"};
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, options);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        periodSpinner.setAdapter(adapter);
+        ArrayAdapter<String> periodAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, options);
+        periodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        periodSpinner.setAdapter(periodAdapter);
+
+        ArrayAdapter<String> calcAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, options);
+        calcAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        calculatedPeriodSpinner.setAdapter(calcAdapter);
 
         periodSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View v, int pos, long id) { recalcPreview(); }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        calculatedPeriodSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View v, int pos, long id) { recalcPreview(); }
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
@@ -63,7 +75,16 @@ public class OnboardingFragment extends Fragment {
                     .putString("period", period)
                     .putString("allocation", allocated.toString())
                     .putBoolean("onboarding_finished", true)
+                    .putString("budget_amount", allocated.toString())
+                    .putString("budget_period", period)
                     .apply();
+
+            try {
+                if (requireActivity() instanceof MainActivity) {
+                    java.util.List<Expense> list = ((MainActivity) requireActivity()).getExpensesFromPrefs();
+                    BudgetChecker.checkAndNotify(requireContext(), list);
+                }
+            } catch (Exception ignored) {}
 
             requireActivity().getSupportFragmentManager()
                     .beginTransaction()
@@ -71,39 +92,73 @@ public class OnboardingFragment extends Fragment {
                     .commit();
         });
 
+        calculatedPeriodSpinner.setSelection(0); // Daily by default
         recalcPreview();
     }
 
     private void recalcPreview() {
         Double allocated = parseDouble(allocatedEt.getText().toString());
         if (allocated == null) {
-            if (previewDailyEt != null) previewDailyEt.setText("");
+            calculatedValueTv.setText("");
             return;
         }
-        String period = (String) (periodSpinner.getSelectedItem() != null ? periodSpinner.getSelectedItem() : "Daily");
-        int daysLeft = daysLeftIncludingToday(period);
-        double daily = (daysLeft <= 0) ? allocated : (allocated / daysLeft);
-        if (previewDailyEt != null) previewDailyEt.setText(String.format(Locale.getDefault(), "%.2f", daily));
+
+        String inputPeriod = (String) (periodSpinner.getSelectedItem() != null ? periodSpinner.getSelectedItem() : "Daily");
+        String showPeriod = (String) (calculatedPeriodSpinner.getSelectedItem() != null ? calculatedPeriodSpinner.getSelectedItem() : "Daily");
+
+        int daysLeftMonth = daysLeftIncludingToday();
+        int daysLeftWeek = daysLeftInWeekIncludingToday();
+
+        double daily = 0.0, weekly = 0.0, monthly = 0.0;
+        switch (inputPeriod.toLowerCase(Locale.ROOT)) {
+            case "daily":
+                daily = allocated;
+                weekly = daily * daysLeftWeek;
+                monthly = daily * daysLeftMonth;
+                break;
+            case "weekly":
+                weekly = allocated;
+                daily = (daysLeftWeek > 0) ? (weekly / (double) daysLeftWeek) : (weekly / 7.0);
+                monthly = daily * daysLeftMonth;
+                break;
+            case "monthly":
+            default:
+                monthly = allocated;
+                daily = (daysLeftMonth > 0) ? (monthly / (double) daysLeftMonth) : (monthly / 30.0);
+                weekly = daily * daysLeftWeek;
+                break;
+        }
+
+        String out;
+        switch (showPeriod.toLowerCase(Locale.ROOT)) {
+            case "weekly":
+                out = String.format(Locale.getDefault(), "Weekly: ₱ %.2f", weekly);
+                break;
+            case "monthly":
+                out = String.format(Locale.getDefault(), "Monthly: ₱ %.2f", monthly);
+                break;
+            case "daily":
+            default:
+                out = String.format(Locale.getDefault(), "Daily: ₱ %.2f", daily);
+                break;
+        }
+
+        calculatedValueTv.setText(out);
     }
 
-    private Integer daysLeftIncludingToday(String period) {
+    private int daysLeftIncludingToday() {
         Calendar now = Calendar.getInstance();
-        switch (period) {
-            case "Daily": return 1;
-            case "Weekly": {
-                int today = now.get(Calendar.DAY_OF_WEEK);
-                int daysUntilSunday = (Calendar.SUNDAY - today);
-                if (daysUntilSunday < 0) daysUntilSunday += 7;
-                return daysUntilSunday + 1;
-            }
-            case "Monthly": {
-                int today = now.get(Calendar.DAY_OF_MONTH);
-                int maxDay = now.getActualMaximum(Calendar.DAY_OF_MONTH);
-                int remaining = Math.max(1, maxDay - today);
-                return remaining;
-            }
-            default: return 1;
-        }
+        int today = now.get(Calendar.DAY_OF_MONTH);
+        int maxDay = now.getActualMaximum(Calendar.DAY_OF_MONTH);
+        return Math.max(1, maxDay - today + 1);
+    }
+
+    private int daysLeftInWeekIncludingToday() {
+        Calendar now = Calendar.getInstance();
+        int today = now.get(Calendar.DAY_OF_WEEK);
+        int daysUntilSunday = (Calendar.SUNDAY - today);
+        if (daysUntilSunday < 0) daysUntilSunday += 7;
+        return daysUntilSunday + 1;
     }
 
     private Double parseDouble(String s) {

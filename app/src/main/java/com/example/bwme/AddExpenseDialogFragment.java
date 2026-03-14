@@ -13,9 +13,11 @@ import android.text.InputType;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultCallback;
@@ -45,10 +47,12 @@ public class AddExpenseDialogFragment extends DialogFragment {
     private final Gson gson = new Gson();
     private double pendingAmount = 0.0;
     private String pendingDesc = "Expense";
+    private String pendingCategory = "Other";
     private Context appContext = null;
     private ActivityResultLauncher<String> requestLocation;
     private EditText amountEt;
     private EditText descEt;
+    private Spinner categorySpinner;
 
     @Override
     public void onAttach(@NonNull Context context) {
@@ -83,6 +87,15 @@ public class AddExpenseDialogFragment extends DialogFragment {
         View v = LayoutInflater.from(ctx).inflate(R.layout.dialog_add_expense, null);
         amountEt = v.findViewById(R.id.dialogAmount);
         descEt = v.findViewById(R.id.dialogDesc);
+        categorySpinner = v.findViewById(R.id.dialogCategory);
+
+        if (categorySpinner != null) {
+            String[] categories = new String[] {"Food", "Transport", "Entertainment", "Utilities", "Other"};
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, android.R.layout.simple_spinner_item, categories);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            categorySpinner.setAdapter(adapter);
+            categorySpinner.setSelection(4);
+        }
 
         AlertDialog dialog = new AlertDialog.Builder(ctx)
                 .setTitle("Add expense")
@@ -118,6 +131,12 @@ public class AddExpenseDialogFragment extends DialogFragment {
 
                     String desc = descEt.getText().toString().trim();
                     if (desc.isEmpty()) desc = "Expense";
+
+                    if (categorySpinner != null && categorySpinner.getSelectedItem() != null) {
+                        pendingCategory = categorySpinner.getSelectedItem().toString();
+                    } else {
+                        pendingCategory = "Other";
+                    }
 
                     if (amt == null || amt <= 0.0) {
                         Toast.makeText(dialogCtx, "Enter valid amount", Toast.LENGTH_SHORT).show();
@@ -321,16 +340,15 @@ public class AddExpenseDialogFragment extends DialogFragment {
 
             Expense e;
             if (locPair != null && locPair.length >= 2) {
-                e = new Expense(pendingAmount, pendingDesc, System.currentTimeMillis(), locPair[0], locPair[1]);
+                e = new Expense(pendingAmount, pendingDesc, System.currentTimeMillis(), locPair[0], locPair[1], pendingCategory);
             } else {
-                e = new Expense(pendingAmount, pendingDesc, System.currentTimeMillis(), null, null);
+                e = new Expense(pendingAmount, pendingDesc, System.currentTimeMillis(), null, null, pendingCategory);
             }
 
             list.add(0, e);
             String newJson = gson.toJson(list);
 
             prefs.edit().putString("expenses_json", newJson).apply();
-
             try {
                 List<Expense> savedList = gson.fromJson(newJson, type);
                 if (savedList != null) {
@@ -385,6 +403,7 @@ public class AddExpenseDialogFragment extends DialogFragment {
         } finally {
             pendingAmount = 0.0;
             pendingDesc = "Expense";
+            pendingCategory = "Other";
         }
     }
 }

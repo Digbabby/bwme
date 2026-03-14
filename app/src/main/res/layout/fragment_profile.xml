@@ -54,22 +54,43 @@
         android:id="@+id/labelCalculated"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Calculated Daily Allowance"
+        android:text="Calculated Allowance"
         android:textColor="?attr/bwme_onSurface"
         app:layout_constraintTop_toBottomOf="@id/profilePeriodSpinner"
         app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="12dp"/>
+        android:layout_marginTop="12dp"
+        android:textStyle="bold"/>
 
-    <EditText
+    <TextView
+        android:id="@+id/labelCalculatedPeriodType"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Calculated Period Type"
+        android:textColor="?attr/bwme_onSurface"
+        app:layout_constraintTop_toBottomOf="@id/labelCalculated"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="6dp"/>
+
+    <Spinner
+        android:id="@+id/profileCalculatedPeriodSpinner"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toBottomOf="@id/labelCalculated"
+        app:layout_constraintStart_toEndOf="@id/labelCalculatedPeriodType"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginStart="8dp"/>
+
+    <TextView
         android:id="@+id/profileAllocation"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:enabled="false"
         android:focusable="false"
-        app:layout_constraintTop_toBottomOf="@id/profilePeriodSpinner"
-        app:layout_constraintStart_toEndOf="@id/labelCalculated"
+        app:layout_constraintTop_toBottomOf="@id/profileCalculatedPeriodSpinner"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginStart="8dp"/>
+        android:layout_marginTop="8dp"
+        android:textColor="?attr/bwme_onSurface"/>
 
     <Button
         android:id="@+id/profileSave"
