@@ -53,7 +53,6 @@ public class StatsFragment extends Fragment {
     private final Gson gson = new Gson();
 
     private static final int MAX_SERIES = 6;
-    private static final long MS_DAY = 24L * 3600L * 1000L;
 
     private static final int[] PALETTE = new int[] {
             Color.parseColor("#3366CC"),
@@ -63,11 +62,7 @@ public class StatsFragment extends Fragment {
             Color.parseColor("#990099"),
             Color.parseColor("#0099C6"),
             Color.parseColor("#DD4477"),
-            Color.parseColor("#66AA00"),
-            Color.parseColor("#B82E2E"),
-            Color.parseColor("#316395"),
-            Color.parseColor("#994499"),
-            Color.parseColor("#22AA99")
+            Color.parseColor("#66AA00")
     };
 
     @Nullable
@@ -85,7 +80,6 @@ public class StatsFragment extends Fragment {
         pieChart = view.findViewById(R.id.categoryPieChart);
         barChart = view.findViewById(R.id.locationBarChart);
         lineChart = view.findViewById(R.id.spendingLineChart);
-
         setupSpinners();
         configureCharts();
         renderForSelection();
@@ -96,17 +90,14 @@ public class StatsFragment extends Fragment {
         ArrayAdapter<String> periodAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, periods);
         periodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         periodSpinner.setAdapter(periodAdapter);
-
         String[] groups = new String[] {"Category", "Location"};
         ArrayAdapter<String> groupAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, groups);
         groupAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         groupSpinner.setAdapter(groupAdapter);
-
         AdapterView.OnItemSelectedListener listener = new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) { renderForSelection(); }
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         };
-
         periodSpinner.setOnItemSelectedListener(listener);
         groupSpinner.setOnItemSelectedListener(listener);
     }
@@ -119,7 +110,6 @@ public class StatsFragment extends Fragment {
             Legend l = pieChart.getLegend();
             if (l != null) l.setWordWrapEnabled(true);
         }
-
         if (barChart != null) {
             barChart.getDescription().setEnabled(false);
             barChart.setFitBars(true);
@@ -128,7 +118,6 @@ public class StatsFragment extends Fragment {
             x.setGranularity(1f);
             x.setPosition(XAxis.XAxisPosition.BOTTOM);
         }
-
         if (lineChart != null) {
             lineChart.getDescription().setEnabled(false);
             if (lineChart.getLegend() != null) lineChart.getLegend().setWordWrapEnabled(true);
@@ -140,14 +129,10 @@ public class StatsFragment extends Fragment {
 
     private void renderForSelection() {
         if (getActivity() == null) return;
-
         final String period = (String) (periodSpinner.getSelectedItem() != null ? periodSpinner.getSelectedItem() : "Daily");
         final String groupBy = (String) (groupSpinner.getSelectedItem() != null ? groupSpinner.getSelectedItem() : "Category");
-
         PeriodBuckets buckets = buildBuckets(period);
-
-        AggregationResult agg = aggregateExpenses(buckets, groupBy);
-
+        AggregationResult agg = aggregateExpenses(buckets, groupBy, period);
         List<SeriesTotal> sorted = new ArrayList<>();
         for (Map.Entry<String, double[]> en : agg.series.entrySet()) {
             double total = 0.0;
@@ -159,11 +144,8 @@ public class StatsFragment extends Fragment {
                 return Double.compare(b.total, a.total);
             }
         });
-
         renderPieChart(sorted, agg.series, buckets);
-
         renderBarChart(sorted);
-
         renderLineChart(sorted, buckets);
     }
 
@@ -190,7 +172,6 @@ public class StatsFragment extends Fragment {
                 bucketStart.set(Calendar.SECOND, 0);
                 bucketStart.set(Calendar.MILLISECOND, 0);
                 starts[i] = bucketStart.getTimeInMillis();
-                labels[i] = String.format(Locale.getDefault(), "W%s", i - (count - 1));
                 java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MM-dd", Locale.getDefault());
                 labels[i] = sdf.format(bucketStart.getTime());
             }
@@ -233,20 +214,17 @@ public class StatsFragment extends Fragment {
         }
     }
 
-
     private static class AggregationResult {
         final Map<String, double[]> series;
         AggregationResult(Map<String, double[]> series) { this.series = series; }
     }
 
-    private AggregationResult aggregateExpenses(PeriodBuckets buckets, String groupBy) {
+    private AggregationResult aggregateExpenses(PeriodBuckets buckets, String groupBy, String period) {
         Map<String, double[]> series = new HashMap<>();
         if (getActivity() == null) return new AggregationResult(series);
-
         SharedPreferences prefs = requireActivity().getSharedPreferences(MainActivity.PREFS, requireActivity().MODE_PRIVATE);
         String json = prefs.getString("expenses_json", "[]");
         if (json == null) json = "[]";
-
         Type listType = new TypeToken<List<Expense>>() {}.getType();
         List<Expense> list;
         try {
@@ -255,16 +233,12 @@ public class StatsFragment extends Fragment {
         } catch (Exception ex) {
             list = new ArrayList<>();
         }
-
         int bucketCount = buckets.starts.length;
-        long lastBucketStart = buckets.starts[bucketCount - 1];
-
         for (Expense e : list) {
             if (e == null) continue;
             double amt = 0.0;
             try { amt = e.amount; } catch (Throwable t) { continue; }
             long ts = e.ts;
-
             int idx = -1;
             for (int b = 0; b < bucketCount; b++) {
                 long start = buckets.starts[b];
@@ -272,7 +246,9 @@ public class StatsFragment extends Fragment {
                 if (ts >= start && ts < end) { idx = b; break; }
             }
             if (idx == -1) continue;
-
+            String cat = e.category != null ? e.category.toLowerCase(Locale.ROOT) : "";
+            boolean isAllocated = ("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat) || "installments".equals(cat) || "planned expense".equals(cat));
+            if (!"Monthly".equalsIgnoreCase(period) && isAllocated) continue;
             String key;
             if ("Location".equalsIgnoreCase(groupBy)) {
                 if (e.lat == null || e.lng == null) continue;
@@ -280,7 +256,6 @@ public class StatsFragment extends Fragment {
             } else {
                 key = (e.category != null) ? e.category : "Other";
             }
-
             double[] arr = series.get(key);
             if (arr == null) {
                 arr = new double[bucketCount];
@@ -289,10 +264,8 @@ public class StatsFragment extends Fragment {
             }
             arr[idx] += amt;
         }
-
         return new AggregationResult(series);
     }
-
 
     private static class SeriesTotal {
         final String key;
@@ -304,13 +277,10 @@ public class StatsFragment extends Fragment {
     private void renderPieChart(List<SeriesTotal> sorted, Map<String, double[]> seriesMap, PeriodBuckets buckets) {
         if (pieChart == null) return;
         pieChart.clear();
-
         List<PieEntry> entries = new ArrayList<>();
         List<Integer> colors = new ArrayList<>();
-
         int taken = 0;
         double otherSum = 0.0;
-
         for (SeriesTotal st : sorted) {
             if (taken < MAX_SERIES) {
                 double s = 0.0;
@@ -324,23 +294,19 @@ public class StatsFragment extends Fragment {
                 otherSum += s;
             }
         }
-
         if (entries.isEmpty()) {
             pieChart.setNoDataText("No data");
             pieChart.invalidate();
             return;
         }
-
         if (otherSum > 0.0) {
             entries.add(new PieEntry((float) otherSum, "Other"));
             colors.add(Color.LTGRAY);
         }
-
         PieDataSet ds = new PieDataSet(entries, "");
         ds.setSliceSpace(2f);
         ds.setColors(colors);
         ds.setValueTextSize(12f);
-
         PieData pd = new PieData(ds);
         pieChart.setData(pd);
         pieChart.invalidate();
@@ -349,32 +315,26 @@ public class StatsFragment extends Fragment {
     private void renderBarChart(List<SeriesTotal> sorted) {
         if (barChart == null) return;
         barChart.clear();
-
         if (sorted.isEmpty()) {
             barChart.setNoDataText("No data");
             barChart.invalidate();
             return;
         }
-
         int take = Math.min(sorted.size(), MAX_SERIES);
         List<BarEntry> entries = new ArrayList<>();
         final List<String> labels = new ArrayList<>();
         List<Integer> colors = new ArrayList<>();
-
         for (int i = 0; i < take; i++) {
             SeriesTotal st = sorted.get(i);
             entries.add(new BarEntry(i, (float) st.total));
             labels.add(st.key);
             colors.add(PALETTE[i % PALETTE.length]);
         }
-
         BarDataSet ds = new BarDataSet(entries, "");
         ds.setColors(colors);
         ds.setValueTextSize(11f);
-
         BarData bd = new BarData(ds);
         bd.setBarWidth(0.9f);
-
         barChart.setData(bd);
         XAxis x = barChart.getXAxis();
         x.setValueFormatter(new IndexAxisValueFormatter(labels));
@@ -386,16 +346,13 @@ public class StatsFragment extends Fragment {
     private void renderLineChart(List<SeriesTotal> sorted, PeriodBuckets buckets) {
         if (lineChart == null) return;
         lineChart.clear();
-
         if (sorted.isEmpty()) {
             lineChart.setNoDataText("No data");
             lineChart.invalidate();
             return;
         }
-
         int take = Math.min(sorted.size(), MAX_SERIES);
         List<com.github.mikephil.charting.interfaces.datasets.ILineDataSet> sets = new ArrayList<>();
-
         for (int s = 0; s < take; s++) {
             SeriesTotal st = sorted.get(s);
             List<Entry> entries = new ArrayList<>();
@@ -410,10 +367,8 @@ public class StatsFragment extends Fragment {
             ds.setValueTextSize(9f);
             sets.add(ds);
         }
-
         LineData ld = new LineData(sets);
         lineChart.setData(ld);
-
         XAxis x = lineChart.getXAxis();
         x.setValueFormatter(new IndexAxisValueFormatter(buckets.labels));
         x.setLabelRotationAngle(-40f);

@@ -9,6 +9,10 @@ import android.util.Log;
 
 import androidx.core.content.ContextCompat;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+import java.lang.reflect.Type;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
@@ -22,28 +26,31 @@ public final class BudgetChecker {
     private static final String KEY_LAST_NOTIFIED_WEEKLY = "last_notified_weekly";
     private static final String KEY_LAST_NOTIFIED_MONTHLY = "last_notified_monthly";
     private static final String KEY_LAST_PROCESSED_EXP_TS = "last_processed_exp_ts";
-    private static final boolean DEBUG = true;
     private static final double NEARLY_FULL = 0.75;
     private static final long NOTIF_COOLDOWN_MS = 0L;
+    private static final long MS_DAY = 24L * 3600L * 1000L;
 
     public static void checkAndNotify(Context ctx, List<Expense> expenses) {
         if (ctx == null) {
             Log.w(TAG, "context is null; aborting check");
             return;
         }
-
         try {
             SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-
             double profileBudget = readBudgetAmount(prefs);
             String profilePeriod = prefs.getString(KEY_BUDGET_PERIOD, "monthly");
-
-            if (DEBUG) Log.d(TAG, "Profile budget read: amount=" + profileBudget + ", period=" + profilePeriod);
-
             if (profileBudget <= 0.0) {
-                if (DEBUG) Log.d(TAG, "No profile budget configured (<=0). Skipping notifications.");
+                checkAndSendReminders(ctx, prefs, expenses);
                 return;
             }
+
+            Budgets base = deriveBudgets(profileBudget, profilePeriod);
+            double allocatedDeduction = sumAllocatedExpenses(prefs);
+            double savingsMonthly = sumSavingsMonthly(prefs);
+            double monthlyFromInput = base.monthly;
+            double remainingMonthly = monthlyFromInput - allocatedDeduction - savingsMonthly;
+            if (remainingMonthly < 0.0) remainingMonthly = 0.0;
+            Budgets b = deriveBudgets(remainingMonthly, "monthly");
 
             long maxExpenseTs = 0L;
             if (expenses != null) {
@@ -55,31 +62,18 @@ public final class BudgetChecker {
             }
 
             long lastProcessedTs = prefs.getLong(KEY_LAST_PROCESSED_EXP_TS, 0L);
-            if (DEBUG) Log.d(TAG, "Max expense ts=" + maxExpenseTs + " lastProcessedTs=" + lastProcessedTs);
-
             if (maxExpenseTs <= lastProcessedTs) {
-                if (DEBUG) Log.d(TAG, "No new expenses since last processed. Skipping notifications.");
+                checkAndSendReminders(ctx, prefs, expenses);
                 return;
-            }
-
-            Budgets b = deriveBudgets(profileBudget, profilePeriod);
-            if (DEBUG) {
-                Log.d(TAG, String.format(Locale.getDefault(),
-                        "Derived budgets: daily=%.4f weekly=%.4f monthly=%.4f", b.daily, b.weekly, b.monthly));
             }
 
             long startOfDay = getStartOfToday();
             long startOfWeek = getStartOfThisWeek();
             long startOfMonth = getStartOfThisMonth();
 
-            double sumDay = sumSince(expenses, startOfDay);
-            double sumWeek = sumSince(expenses, startOfWeek);
-            double sumMonth = sumSince(expenses, startOfMonth);
-
-            if (DEBUG) {
-                Log.d(TAG, String.format(Locale.getDefault(),
-                        "Sums: day=%.4f week=%.4f month=%.4f", sumDay, sumWeek, sumMonth));
-            }
+            double sumDay = sumSinceExcludingAllocated(expenses, startOfDay);
+            double sumWeek = sumSinceExcludingAllocated(expenses, startOfWeek);
+            double sumMonth = sumSinceExcludingAllocated(expenses, startOfMonth);
 
             long now = System.currentTimeMillis();
             long lastNotifiedDaily = prefs.getLong(KEY_LAST_NOTIFIED_DAILY, 0L);
@@ -89,10 +83,6 @@ public final class BudgetChecker {
             boolean monthlyHit = sumMonth >= b.monthly * NEARLY_FULL;
             boolean weeklyHit = sumWeek >= b.weekly * NEARLY_FULL;
             boolean dailyHit = sumDay >= b.daily * NEARLY_FULL;
-
-            if (DEBUG) {
-                Log.d(TAG, "Thresholds: monthly=" + monthlyHit + " weekly=" + weeklyHit + " daily=" + dailyHit);
-            }
 
             int chosenPeriod = 0;
             String title = null;
@@ -117,42 +107,31 @@ public final class BudgetChecker {
                 sumValue = sumDay;
                 periodLabel = "daily";
             } else {
-                if (DEBUG) Log.d(TAG, "No thresholds hit right now.");
                 prefs.edit().putLong(KEY_LAST_PROCESSED_EXP_TS, maxExpenseTs).apply();
+                checkAndSendReminders(ctx, prefs, expenses);
                 return;
             }
 
             double pct = (budgetValue > 0.0) ? (sumValue / budgetValue * 100.0) : 100.0;
-            text = String.format(Locale.getDefault(), "You spent %.1f%% of your %s budget (₱ %.2f)",
-                    pct, periodLabel, budgetValue);
+            text = String.format(Locale.getDefault(), "You spent %.1f%% of your %s budget (₱ %.2f)", pct, periodLabel, budgetValue);
             title = String.format(Locale.getDefault(), "%s budget alert", capitalize(periodLabel));
 
-            boolean suppressedByCooldown = false;
             boolean sent = false;
             switch (chosenPeriod) {
                 case 3:
-                    if (lastNotifiedMonthly >= (now - NOTIF_COOLDOWN_MS)) {
-                        suppressedByCooldown = true;
-                        if (DEBUG) Log.d(TAG, "Monthly notification suppressed by cooldown.");
-                    } else {
+                    if (lastNotifiedMonthly < (now - NOTIF_COOLDOWN_MS)) {
                         sent = maybeSendNotification(ctx, title, text, NotificationUtils.NOTIF_ID_MONTHLY);
                         if (sent) prefs.edit().putLong(KEY_LAST_NOTIFIED_MONTHLY, now).apply();
                     }
                     break;
                 case 2:
-                    if (lastNotifiedWeekly >= (now - NOTIF_COOLDOWN_MS)) {
-                        suppressedByCooldown = true;
-                        if (DEBUG) Log.d(TAG, "Weekly notification suppressed by cooldown.");
-                    } else {
+                    if (lastNotifiedWeekly < (now - NOTIF_COOLDOWN_MS)) {
                         sent = maybeSendNotification(ctx, title, text, NotificationUtils.NOTIF_ID_WEEKLY);
                         if (sent) prefs.edit().putLong(KEY_LAST_NOTIFIED_WEEKLY, now).apply();
                     }
                     break;
                 case 1:
-                    if (lastNotifiedDaily >= (now - NOTIF_COOLDOWN_MS)) {
-                        suppressedByCooldown = true;
-                        if (DEBUG) Log.d(TAG, "Daily notification suppressed by cooldown.");
-                    } else {
+                    if (lastNotifiedDaily < (now - NOTIF_COOLDOWN_MS)) {
                         sent = maybeSendNotification(ctx, title, text, NotificationUtils.NOTIF_ID_DAILY);
                         if (sent) prefs.edit().putLong(KEY_LAST_NOTIFIED_DAILY, now).apply();
                     }
@@ -160,14 +139,130 @@ public final class BudgetChecker {
             }
 
             prefs.edit().putLong(KEY_LAST_PROCESSED_EXP_TS, maxExpenseTs).apply();
-
-            if (DEBUG) {
-                Log.d(TAG, String.format(Locale.getDefault(),
-                        "Notification result: chosen=%d sent=%b suppressedByCooldown=%b text=%s", chosenPeriod, sent, suppressedByCooldown, text));
-            }
-
+            checkAndSendReminders(ctx, prefs, expenses);
         } catch (Throwable t) {
             Log.w(TAG, "checkAndNotify failed", t);
+        }
+    }
+
+    public static double getDailyBudgetFromPrefs(SharedPreferences prefs) {
+        if (prefs == null) return 0.0;
+        double amount = readBudgetAmount(prefs);
+        String period = prefs.getString(KEY_BUDGET_PERIOD, prefs.getString("period", "monthly"));
+        Budgets base = deriveBudgets(amount, period);
+        double allocatedDeduction = sumAllocatedExpenses(prefs);
+        double savingsMonthly = sumSavingsMonthly(prefs);
+        double monthlyFromInput = base.monthly;
+        double remainingMonthly = monthlyFromInput - allocatedDeduction - savingsMonthly;
+        if (remainingMonthly < 0.0) remainingMonthly = 0.0;
+        Budgets finalB = deriveBudgets(remainingMonthly, "monthly");
+        return finalB.daily;
+    }
+
+    public static double sumAllocatedExpenses(SharedPreferences prefs) {
+        if (prefs == null) return 0.0;
+        double total = 0.0;
+        try {
+            String json = prefs.getString("expenses_json", "[]");
+            if (json == null) json = "[]";
+            Gson g = new Gson();
+            Type listType = new TypeToken<List<Expense>>() {}.getType();
+            List<Expense> list;
+            try {
+                list = g.fromJson(json, listType);
+                if (list == null) list = new java.util.ArrayList<>();
+            } catch (Exception ex) {
+                list = new java.util.ArrayList<>();
+            }
+            for (Expense e : list) {
+                if (e == null) continue;
+                String cat = e.category != null ? e.category.toLowerCase(Locale.ROOT) : "";
+                if ("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat) || "installments".equals(cat) || "planned expense".equals(cat)) {
+                    try { total += e.amount; } catch (Throwable ignored) {}
+                }
+            }
+        } catch (Exception ignored) {}
+        return total;
+    }
+
+    public static double sumSavingsMonthly(SharedPreferences prefs) {
+        if (prefs == null) return 0.0;
+        double total = 0.0;
+        try {
+            String json = prefs.getString("savings_json", "[]");
+            if (json == null) json = "[]";
+            Gson g = new Gson();
+            Type listType = new TypeToken<List<Savings>>() {}.getType();
+            List<Savings> list;
+            try {
+                list = g.fromJson(json, listType);
+                if (list == null) list = new java.util.ArrayList<>();
+            } catch (Exception ex) {
+                list = new java.util.ArrayList<>();
+            }
+            int daysLeftMonth = daysLeftIncludingToday();
+            int daysLeftWeek = daysLeftInWeekIncludingToday();
+            for (Savings s : list) {
+                if (s == null) continue;
+                try {
+                    String p = s.period != null ? s.period.toLowerCase(Locale.ROOT) : "monthly";
+                    double monthly = 0.0;
+                    switch (p) {
+                        case "daily":
+                            monthly = s.amount * daysLeftMonth;
+                            break;
+                        case "weekly":
+                            double dailyFromWeekly = (daysLeftWeek > 0) ? (s.amount / (double) daysLeftWeek) : (s.amount / 7.0);
+                            monthly = dailyFromWeekly * daysLeftMonth;
+                            break;
+                        case "monthly":
+                        default:
+                            monthly = s.amount;
+                            break;
+                    }
+                    total += monthly;
+                } catch (Throwable ignored) {}
+            }
+        } catch (Exception ignored) {}
+        return total;
+    }
+
+    private static double sumSinceExcludingAllocated(List<Expense> expenses, long sinceMs) {
+        if (expenses == null) return 0.0;
+        double sum = 0.0;
+        for (Expense ex : expenses) {
+            try {
+                long ts = ex.ts;
+                String cat = ex.category != null ? ex.category.toLowerCase(Locale.ROOT) : "";
+                boolean isAllocated = ("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat) || "installments".equals(cat) || "planned expense".equals(cat));
+                if (ts >= sinceMs && !isAllocated) sum += ex.amount;
+            } catch (Throwable ignored) {}
+        }
+        return sum;
+    }
+
+    private static void checkAndSendReminders(Context ctx, SharedPreferences prefs, List<Expense> expenses) {
+        if (ctx == null || prefs == null || expenses == null) return;
+        long startOfDay = getStartOfToday();
+        long endOfDay = startOfDay + MS_DAY;
+        for (Expense e : expenses) {
+            if (e == null) continue;
+            try {
+                String cat = e.category != null ? e.category.toLowerCase(Locale.ROOT) : "";
+                boolean isAllocated = ("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat) || "installments".equals(cat) || "planned expense".equals(cat));
+                if (!isAllocated) continue;
+                if (e.reminderTs == null) continue;
+                long r = e.reminderTs;
+                if (r >= startOfDay && r < endOfDay) {
+                    String key = "allocated_reminder_notified_" + r + "_" + (long)e.amount;
+                    boolean already = prefs.getBoolean(key, false);
+                    if (already) continue;
+                    String title = "Planned expense today";
+                    String body = String.format(Locale.getDefault(), "Reminder: %s of ₱ %.2f is scheduled for today", e.desc != null ? e.desc : "Planned expense", e.amount);
+                    boolean sent = maybeSendNotification(ctx, title, body, (int)(System.currentTimeMillis() & 0x7fffffff));
+                    if (sent) prefs.edit().putBoolean(key, true).apply();
+                }
+            } catch (Throwable ignored) {}
         }
     }
 
@@ -183,12 +278,10 @@ public final class BudgetChecker {
                 String s = prefs.getString(KEY_BUDGET_AMOUNT, null);
                 if (s != null) return Double.parseDouble(s);
             } catch (Exception ignored) { }
-
             try {
                 float f = prefs.getFloat(KEY_BUDGET_AMOUNT, Float.NaN);
                 if (!Float.isNaN(f)) return f;
             } catch (Exception ignored) { }
-
             try {
                 long bits = prefs.getLong(KEY_BUDGET_AMOUNT, Long.MIN_VALUE);
                 if (bits != Long.MIN_VALUE) return Double.longBitsToDouble(bits);
@@ -204,7 +297,6 @@ public final class BudgetChecker {
         int daysLeftInWeek = daysLeftInWeekIncludingToday();
         double daily, weekly, monthly;
         period = (period != null) ? period.toLowerCase(Locale.ROOT) : "monthly";
-
         switch (period) {
             case "daily":
                 daily = amount;
@@ -224,18 +316,6 @@ public final class BudgetChecker {
                 break;
         }
         return new Budgets(daily, weekly, monthly);
-    }
-
-    private static double sumSince(List<Expense> expenses, long sinceMs) {
-        if (expenses == null) return 0.0;
-        double sum = 0.0;
-        for (Expense ex : expenses) {
-            try {
-                long ts = ex.ts;
-                if (ts >= sinceMs) sum += ex.amount;
-            } catch (Throwable ignored) {}
-        }
-        return sum;
     }
 
     private static long getStartOfToday() {
@@ -290,7 +370,6 @@ public final class BudgetChecker {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS)
                         != PackageManager.PERMISSION_GRANTED) {
-                    Log.i(TAG, "POST_NOTIFICATIONS not granted; skipping notification: " + title);
                     return false;
                 }
             }

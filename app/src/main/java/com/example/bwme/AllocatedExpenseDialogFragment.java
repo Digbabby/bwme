@@ -1,6 +1,7 @@
 package com.example.bwme;
 
 import android.Manifest;
+import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -15,6 +16,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
@@ -40,19 +42,22 @@ import java.lang.Exception;
 import java.lang.SecurityException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
-public class AddExpenseDialogFragment extends DialogFragment {
-    private static final String TAG = "AddExpense";
+public class AllocatedExpenseDialogFragment extends DialogFragment {
+    private static final String TAG = "AllocatedExpenseDlg";
     private final Gson gson = new Gson();
     private double pendingAmount = 0.0;
     private String pendingDesc = "Expense";
-    private String pendingCategory = "Other";
+    private String pendingCategory = "bills";
+    private Long pendingReminderTs = null;
     private Context appContext = null;
     private ActivityResultLauncher<String> requestLocation;
     private EditText amountEt;
     private EditText descEt;
     private Spinner categorySpinner;
+    private EditText dateEt;
 
     @Override
     public void onAttach(@NonNull Context context) {
@@ -71,7 +76,7 @@ public class AddExpenseDialogFragment extends DialogFragment {
                         if (granted != null && granted) {
                             fetchLocationAndSave();
                         } else {
-                            saveExpense(null, appContext);
+                            saveAllocatedExpense(null, appContext);
                         }
                     }
                 }
@@ -82,24 +87,63 @@ public class AddExpenseDialogFragment extends DialogFragment {
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         final Context ctx = requireContext();
-        View v = LayoutInflater.from(ctx).inflate(R.layout.dialog_add_expense, null);
-        amountEt = v.findViewById(R.id.dialogAmount);
-        descEt = v.findViewById(R.id.dialogDesc);
-        categorySpinner = v.findViewById(R.id.dialogCategory);
+        LinearLayout layout = new LinearLayout(ctx);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad, pad, pad);
 
-        if (categorySpinner != null) {
-            String[] categories = new String[] {"Food", "Transport", "Entertainment", "Utilities", "Other"};
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, android.R.layout.simple_spinner_item, categories);
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-            categorySpinner.setAdapter(adapter);
-            categorySpinner.setSelection(4);
-        }
+        amountEt = new EditText(ctx);
+        amountEt.setHint("Amount (e.g. 100)");
+        amountEt.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        layout.addView(amountEt, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        descEt = new EditText(ctx);
+        descEt.setHint("Description");
+        descEt.setInputType(InputType.TYPE_CLASS_TEXT);
+        layout.addView(descEt, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        categorySpinner = new Spinner(ctx);
+        String[] categories = new String[] {"bills", "rent", "gas", "installments", "planned expense"};
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, android.R.layout.simple_spinner_item, categories);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        categorySpinner.setAdapter(adapter);
+        categorySpinner.setSelection(0);
+        layout.addView(categorySpinner, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        dateEt = new EditText(ctx);
+        dateEt.setHint("Reminder date (optional)");
+        dateEt.setFocusable(false);
+        dateEt.setClickable(true);
+        layout.addView(dateEt, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        dateEt.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                final Calendar now = Calendar.getInstance();
+                DatePickerDialog dp = new DatePickerDialog(requireContext(), new DatePickerDialog.OnDateSetListener() {
+                    @Override
+                    public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
+                        Calendar sel = Calendar.getInstance();
+                        sel.set(Calendar.YEAR, year);
+                        sel.set(Calendar.MONTH, month);
+                        sel.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+                        sel.set(Calendar.HOUR_OF_DAY, 0);
+                        sel.set(Calendar.MINUTE, 0);
+                        sel.set(Calendar.SECOND, 0);
+                        sel.set(Calendar.MILLISECOND, 0);
+                        pendingReminderTs = sel.getTimeInMillis();
+                        dateEt.setText(android.text.format.DateFormat.getDateFormat(requireContext()).format(sel.getTime()));
+                    }
+                }, now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH));
+                dp.show();
+            }
+        });
 
         AlertDialog dialog = new AlertDialog.Builder(ctx)
-                .setTitle("Add expense")
-                .setView(v)
+                .setTitle("Add allocated expense")
+                .setView(layout)
                 .setPositiveButton("Add", null)
-                .setNegativeButton("Cancel", (d, which) -> {})
+                .setNegativeButton("Cancel", (d, w) -> {})
                 .create();
 
         return dialog;
@@ -116,57 +160,48 @@ public class AddExpenseDialogFragment extends DialogFragment {
         positive.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                try {
-                    String amtStr = amountEt.getText().toString();
-                    Double amt = null;
-                    try { amt = Double.parseDouble(amtStr); } catch (NumberFormatException ignored) { }
-                    String desc = descEt.getText().toString().trim();
-                    if (desc.isEmpty()) desc = "Expense";
-                    if (categorySpinner != null && categorySpinner.getSelectedItem() != null) {
-                        pendingCategory = categorySpinner.getSelectedItem().toString();
-                    } else {
-                        pendingCategory = "Other";
-                    }
-                    if (amt == null || amt <= 0.0) {
-                        Toast.makeText(dialogCtx, "Enter valid amount", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    pendingAmount = amt;
-                    pendingDesc = desc;
-                    showLocationChoiceDialog(dialogCtx);
-                } catch (Exception ex) {
-                    Log.e(TAG, "Add button exception", ex);
-                    Toast.makeText(dialogCtx, "Failed to add expense: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                String amtStr = amountEt.getText().toString();
+                Double amt = null;
+                try { amt = Double.parseDouble(amtStr); } catch (Exception ignored) {}
+                if (amt == null || amt <= 0.0) {
+                    Toast.makeText(dialogCtx, "Enter valid amount", Toast.LENGTH_SHORT).show();
+                    return;
                 }
+                String desc = descEt.getText().toString().trim();
+                if (desc.isEmpty()) desc = "Expense";
+                if (categorySpinner != null && categorySpinner.getSelectedItem() != null) {
+                    pendingCategory = categorySpinner.getSelectedItem().toString();
+                } else {
+                    pendingCategory = "bills";
+                }
+                pendingAmount = amt;
+                pendingDesc = desc;
+                final CharSequence[] options = new CharSequence[] {
+                        "Use current location",
+                        "Enter coordinates manually",
+                        "No location"
+                };
+                new AlertDialog.Builder(dialogCtx)
+                        .setTitle("Attach location?")
+                        .setItems(options, (d, which) -> {
+                            if (which == 0) {
+                                boolean hasLoc = ContextCompat.checkSelfPermission(dialogCtx, Manifest.permission.ACCESS_FINE_LOCATION)
+                                        == PackageManager.PERMISSION_GRANTED;
+                                if (!hasLoc) {
+                                    requestLocation.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+                                } else {
+                                    fetchLocationAndSave();
+                                }
+                            } else if (which == 1) {
+                                showCustomLocationDialog(dialogCtx);
+                            } else {
+                                saveAllocatedExpense(null, appContext);
+                            }
+                        })
+                        .setNegativeButton("Cancel", (d2, w2) -> {})
+                        .show();
             }
         });
-    }
-
-    private void showLocationChoiceDialog(@NonNull final Context dialogCtx) {
-        final CharSequence[] options = new CharSequence[] {
-                "Use current location",
-                "Enter coordinates manually",
-                "No location"
-        };
-        new AlertDialog.Builder(dialogCtx)
-                .setTitle("Attach location?")
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) {
-                        boolean hasLoc = ContextCompat.checkSelfPermission(dialogCtx, Manifest.permission.ACCESS_FINE_LOCATION)
-                                == PackageManager.PERMISSION_GRANTED;
-                        if (!hasLoc) {
-                            requestLocation.launch(Manifest.permission.ACCESS_FINE_LOCATION);
-                        } else {
-                            fetchLocationAndSave();
-                        }
-                    } else if (which == 1) {
-                        showCustomLocationDialog(dialogCtx);
-                    } else {
-                        saveExpense(null, appContext);
-                    }
-                })
-                .setNegativeButton("Cancel", (d, w) -> {})
-                .show();
     }
 
     private void showCustomLocationDialog(@NonNull final Context dialogCtx) {
@@ -177,8 +212,7 @@ public class AddExpenseDialogFragment extends DialogFragment {
         final EditText coordEt = new EditText(dialogCtx);
         coordEt.setHint("Latitude, Longitude — e.g. 14.5995, 120.9842");
         coordEt.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        layout.addView(coordEt, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(coordEt, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         AlertDialog dlg = new AlertDialog.Builder(dialogCtx)
                 .setTitle("Enter coordinates")
                 .setView(layout)
@@ -217,7 +251,7 @@ public class AddExpenseDialogFragment extends DialogFragment {
                     return;
                 }
                 try { dlg.dismiss(); } catch (Throwable t) { Log.w(TAG, "Failed to dismiss coord dialog", t); }
-                saveExpense(new Double[]{lat, lon}, fallback);
+                saveAllocatedExpense(new Double[]{lat, lon}, fallback);
             }
         });
     }
@@ -227,18 +261,17 @@ public class AddExpenseDialogFragment extends DialogFragment {
             final Context fallbackCtx = appContext;
             final Context activityCtx = getActivity();
             if (activityCtx == null) {
-                saveExpense(null, fallbackCtx);
+                saveAllocatedExpense(null, fallbackCtx);
                 return;
             }
             if (ContextCompat.checkSelfPermission(activityCtx, Manifest.permission.ACCESS_FINE_LOCATION)
                     != PackageManager.PERMISSION_GRANTED) {
-                Log.w(TAG, "Location permission missing at fetchLocationAndSave; saving without location.");
-                saveExpense(null, fallbackCtx);
+                saveAllocatedExpense(null, fallbackCtx);
                 return;
             }
             final FusedLocationProviderClient fused = LocationServices.getFusedLocationProviderClient(activityCtx);
             if (fused == null) {
-                saveExpense(null, fallbackCtx);
+                saveAllocatedExpense(null, fallbackCtx);
                 return;
             }
             try {
@@ -248,13 +281,13 @@ public class AddExpenseDialogFragment extends DialogFragment {
                             public void onSuccess(Location loc) {
                                 try {
                                     if (loc != null) {
-                                        saveExpense(new Double[]{loc.getLatitude(), loc.getLongitude()}, fallbackCtx);
+                                        saveAllocatedExpense(new Double[]{loc.getLatitude(), loc.getLongitude()}, fallbackCtx);
                                     } else {
-                                        saveExpense(null, fallbackCtx);
+                                        saveAllocatedExpense(null, fallbackCtx);
                                     }
                                 } catch (Throwable t) {
                                     Log.w(TAG, "location success but save failed", t);
-                                    saveExpense(null, fallbackCtx);
+                                    saveAllocatedExpense(null, fallbackCtx);
                                 }
                             }
                         })
@@ -262,21 +295,21 @@ public class AddExpenseDialogFragment extends DialogFragment {
                             @Override
                             public void onFailure(@NonNull Exception e) {
                                 Log.w(TAG, "failed to get lastLocation", e);
-                                saveExpense(null, fallbackCtx);
+                                saveAllocatedExpense(null, fallbackCtx);
                             }
                         });
             } catch (SecurityException se) {
                 Log.w(TAG, "SecurityException calling getLastLocation", se);
-                saveExpense(null, fallbackCtx);
+                saveAllocatedExpense(null, fallbackCtx);
             }
         } catch (Exception ex) {
             Log.w(TAG, "fetchLocationAndSave exception", ex);
             final Context fallback = appContext;
-            saveExpense(null, fallback);
+            saveAllocatedExpense(null, fallback);
         }
     }
 
-    private void saveExpense(@Nullable Double[] locPair, @Nullable Context fallbackCtx) {
+    private void saveAllocatedExpense(@Nullable Double[] locPair, @Nullable Context fallbackCtx) {
         Context ctx = getContext();
         if (ctx == null) {
             ctx = fallbackCtx != null ? fallbackCtx : (getActivity() != null ? getActivity().getApplicationContext() : null);
@@ -294,33 +327,30 @@ public class AddExpenseDialogFragment extends DialogFragment {
                 list = gson.fromJson(expJson, type);
                 if (list == null) list = new ArrayList<>();
             } catch (Exception e) {
-                Log.w(TAG, "JSON parse failed, creating new list", e);
                 list = new ArrayList<>();
             }
             Expense e;
+            long nowTs = System.currentTimeMillis();
             if (locPair != null && locPair.length >= 2) {
-                e = new Expense(pendingAmount, pendingDesc, System.currentTimeMillis(), locPair[0], locPair[1], pendingCategory);
+                e = new Expense(pendingAmount, pendingDesc, nowTs, locPair[0], locPair[1], pendingCategory, pendingReminderTs);
             } else {
-                e = new Expense(pendingAmount, pendingDesc, System.currentTimeMillis(), null, null, pendingCategory);
+                e = new Expense(pendingAmount, pendingDesc, nowTs, null, null, pendingCategory, pendingReminderTs);
             }
             list.add(0, e);
             String newJson = gson.toJson(list);
             prefs.edit().putString("expenses_json", newJson).apply();
             final int savedCount = list.size();
-            Log.d(TAG, "Saved expense. count=" + savedCount + " json_len=" + newJson.length());
             final Context toastCtx = ctx;
             new Handler(Looper.getMainLooper()).post(new Runnable() {
                 @Override
                 public void run() {
-                    try { Toast.makeText(toastCtx, "Saved expense (#" + savedCount + ")", Toast.LENGTH_LONG).show(); } catch (Throwable t) { Log.w(TAG, "Could not show toast", t); }
+                    try { Toast.makeText(toastCtx, "Saved allocated expense (#" + savedCount + ")", Toast.LENGTH_LONG).show(); } catch (Throwable t) { Log.w(TAG, "Could not show toast", t); }
                 }
             });
             if (isAdded()) {
                 Bundle bundle = new Bundle();
                 bundle.putInt("count", savedCount);
                 getParentFragmentManager().setFragmentResult("expenses_changed", bundle);
-            } else {
-                Log.d(TAG, "Fragment not added — skipping fragment result post");
             }
             try { dismissAllowingStateLoss(); } catch (Throwable t) { Log.w(TAG, "dismissAllowingStateLoss failed", t); }
         } catch (Exception ex) {
@@ -335,7 +365,9 @@ public class AddExpenseDialogFragment extends DialogFragment {
         } finally {
             pendingAmount = 0.0;
             pendingDesc = "Expense";
-            pendingCategory = "Other";
+            pendingCategory = "bills";
+            pendingReminderTs = null;
+            dateEt.setText("");
         }
     }
 }

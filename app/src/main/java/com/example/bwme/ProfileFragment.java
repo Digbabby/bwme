@@ -1,17 +1,25 @@
 package com.example.bwme;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+import java.lang.reflect.Type;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Locale;
+import java.util.ArrayList;
 
 public class ProfileFragment extends Fragment {
 
@@ -21,8 +29,14 @@ public class ProfileFragment extends Fragment {
     private TextView calculatedValueTv;
     private Button saveBtn;
     private Button resetBtn;
+    private Button logoutBtn;
+    private Button allocatedExpensesBtn;
+    private TextView allocatedExpensesTotalTv;
+    private Button savingsBtn;
+    private TextView savingsTotalTv;
     private Switch darkSwitch;
     private final String prefsName = MainActivity.PREFS;
+    private final Gson gson = new Gson();
 
     public ProfileFragment() {
     }
@@ -41,6 +55,11 @@ public class ProfileFragment extends Fragment {
         calculatedValueTv = view.findViewById(R.id.profileAllocation);
         saveBtn = view.findViewById(R.id.profileSave);
         resetBtn = view.findViewById(R.id.profileReset);
+        logoutBtn = view.findViewById(R.id.profileLogout);
+        allocatedExpensesBtn = view.findViewById(R.id.profileAllocatedExpenses);
+        allocatedExpensesTotalTv = view.findViewById(R.id.profileAllocatedTotal);
+        savingsBtn = view.findViewById(R.id.profileSavings);
+        savingsTotalTv = view.findViewById(R.id.profileSavingsTotal);
         darkSwitch = view.findViewById(R.id.switchDarkMode);
 
         String[] options = new String[] {"Daily", "Weekly", "Monthly"};
@@ -90,10 +109,8 @@ public class ProfileFragment extends Fragment {
             e.putString("budget_amount", allocated.toString());
             e.putString("budget_period", period);
             e.apply();
-
             recalcPreview();
             Toast.makeText(requireContext(), "Saved allocation for " + period, Toast.LENGTH_SHORT).show();
-
             try {
                 if (requireActivity() instanceof MainActivity) {
                     java.util.List<Expense> list = ((MainActivity) requireActivity()).getExpensesFromPrefs();
@@ -104,7 +121,33 @@ public class ProfileFragment extends Fragment {
 
         resetBtn.setOnClickListener(v -> {
             prefs.edit().putString("expenses_json", "[]").apply();
+            updateAllocatedExpensesTotal();
+            updateSavingsTotal();
+            recalcPreview();
             Toast.makeText(requireContext(), "Expenses cleared", Toast.LENGTH_SHORT).show();
+        });
+
+        logoutBtn.setOnClickListener(v -> {
+            AlertDialog.Builder b = new AlertDialog.Builder(requireContext());
+            b.setTitle("Logout");
+            b.setMessage("Are you sure you want to logout?");
+            b.setNegativeButton("Cancel", (d, w) -> {});
+            b.setPositiveButton("Logout", (d, w) -> {
+                Intent i = new Intent(requireActivity(), LoginActivity.class);
+                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+            });
+            b.show();
+        });
+
+        allocatedExpensesBtn.setOnClickListener(v -> {
+            AllocatedExpenseDialogFragment dlg = new AllocatedExpenseDialogFragment();
+            dlg.show(requireActivity().getSupportFragmentManager(), "allocated_expense_dialog");
+        });
+
+        savingsBtn.setOnClickListener(v -> {
+            AddSavingsDialogFragment dlg = new AddSavingsDialogFragment();
+            dlg.show(requireActivity().getSupportFragmentManager(), "add_savings_dialog");
         });
 
         boolean darkEnabled = prefs.getBoolean(MainActivity.KEY_DARK, false);
@@ -116,40 +159,69 @@ public class ProfileFragment extends Fragment {
             requireActivity().recreate();
         });
 
+        getParentFragmentManager().setFragmentResultListener("expenses_changed", getViewLifecycleOwner(),
+                (requestKey, result) -> {
+                    updateAllocatedExpensesTotal();
+                    updateSavingsTotal();
+                    recalcPreview();
+                });
+
+        updateAllocatedExpensesTotal();
+        updateSavingsTotal();
         recalcPreview();
     }
 
+    private void updateAllocatedExpensesTotal() {
+        double total = BudgetChecker.sumAllocatedExpenses(requireActivity().getSharedPreferences(prefsName, Context.MODE_PRIVATE));
+        if (allocatedExpensesTotalTv != null) {
+            allocatedExpensesTotalTv.setText(String.format(Locale.getDefault(), "Allocated expenses total: ₱ %.2f", total));
+        }
+    }
+
+    private void updateSavingsTotal() {
+        double total = BudgetChecker.sumSavingsMonthly(requireActivity().getSharedPreferences(prefsName, Context.MODE_PRIVATE));
+        if (savingsTotalTv != null) {
+            savingsTotalTv.setText(String.format(Locale.getDefault(), "Savings (monthly equiv): ₱ %.2f", total));
+        }
+    }
+
     private void recalcPreview() {
-        Double allocated = parseDouble(allocatedEt.getText().toString());
-        if (allocated == null) {
+        Double input = parseDouble(allocatedEt.getText().toString());
+        if (input == null) {
             calculatedValueTv.setText("");
             return;
         }
-        String inputPeriod = (String) periodSpinner.getSelectedItem();
-        String showPeriod = (String) calculatedPeriodSpinner.getSelectedItem();
+
+        String inputPeriod = (String) (periodSpinner.getSelectedItem() != null ? periodSpinner.getSelectedItem() : "Daily");
+        String showPeriod = (String) (calculatedPeriodSpinner.getSelectedItem() != null ? calculatedPeriodSpinner.getSelectedItem() : "Daily");
 
         int daysLeftMonth = daysLeftIncludingToday();
         int daysLeftWeek = daysLeftInWeekIncludingToday();
 
-        double daily, weekly, monthly;
+        double monthlyFromInput;
         switch (inputPeriod.toLowerCase(Locale.ROOT)) {
             case "daily":
-                daily = allocated;
-                weekly = daily * daysLeftWeek;
-                monthly = daily * daysLeftMonth;
+                monthlyFromInput = input * daysLeftMonth;
                 break;
             case "weekly":
-                weekly = allocated;
-                daily = (daysLeftWeek > 0) ? (weekly / (double) daysLeftWeek) : (weekly / 7.0);
-                monthly = daily * daysLeftMonth;
+                double dailyFromWeekly = (daysLeftWeek > 0) ? (input / (double) daysLeftWeek) : (input / 7.0);
+                monthlyFromInput = dailyFromWeekly * daysLeftMonth;
                 break;
             case "monthly":
             default:
-                monthly = allocated;
-                daily = (daysLeftMonth > 0) ? (monthly / (double) daysLeftMonth) : (monthly / 30.0);
-                weekly = daily * daysLeftWeek;
+                monthlyFromInput = input;
                 break;
         }
+
+        SharedPreferences prefs = requireActivity().getSharedPreferences(prefsName, Context.MODE_PRIVATE);
+        double allocatedDeduction = BudgetChecker.sumAllocatedExpenses(prefs);
+        double savingsMonthly = BudgetChecker.sumSavingsMonthly(prefs);
+        double remainingMonthly = monthlyFromInput - allocatedDeduction - savingsMonthly;
+        if (remainingMonthly < 0.0) remainingMonthly = 0.0;
+
+        double daily = (daysLeftMonth > 0) ? (remainingMonthly / (double) daysLeftMonth) : (remainingMonthly / 30.0);
+        double weekly = daily * daysLeftWeek;
+        double monthly = remainingMonthly;
 
         String out;
         switch (showPeriod.toLowerCase(Locale.ROOT)) {

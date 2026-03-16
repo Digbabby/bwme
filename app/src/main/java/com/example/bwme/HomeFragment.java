@@ -41,13 +41,10 @@ public class HomeFragment extends Fragment {
         totalTv = view.findViewById(R.id.homeTotal);
         percentTv = view.findViewById(R.id.homePercent);
         dailyProgress = view.findViewById(R.id.homeDailyProgress);
-
         adapter = new ExpenseAdapter();
         recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
         recycler.setAdapter(adapter);
-
         loadAndShowExpenses();
-
         getParentFragmentManager().setFragmentResultListener("expenses_changed", getViewLifecycleOwner(),
                 (requestKey, result) -> loadAndShowExpenses());
     }
@@ -64,42 +61,44 @@ public class HomeFragment extends Fragment {
         } catch (Exception ex) {
             list = new ArrayList<>();
         }
-
         adapter.setItems(list);
-
         long startOfToday = getStartOfToday();
         double totalToday = 0.0;
         for (Expense e : list) {
             if (e == null) continue;
             try {
-                if (e.ts >= startOfToday) totalToday += e.amount;
+                if (e.ts >= startOfToday) {
+                    String cat = e.category != null ? e.category.toLowerCase(Locale.ROOT) : "";
+                    if (!("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat) || "installments".equals(cat) || "planned expense".equals(cat))) {
+                        totalToday += e.amount;
+                    }
+                }
             } catch (Throwable ignored) {}
         }
-
         double totalAll = 0.0;
         for (Expense e : list) {
             if (e == null) continue;
-            try { totalAll += e.amount; } catch (Throwable ignored) {}
+            try {
+                String cat = e.category != null ? e.category.toLowerCase(Locale.ROOT) : "";
+                if (!("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat) || "installments".equals(cat) || "planned expense".equals(cat))) {
+                    totalAll += e.amount;
+                }
+            } catch (Throwable ignored) {}
         }
-
         if (totalTv != null) {
             try {
                 totalTv.setText(String.format(Locale.getDefault(), "Total: ₱ %.2f", totalAll));
             } catch (Throwable ignored) {}
         }
-
-        double dailyBudget = deriveDailyBudgetFromPrefs(prefs);
-
+        double dailyBudget = BudgetChecker.getDailyBudgetFromPrefs(prefs);
         double pct = 0.0;
         if (dailyBudget > 0.0) pct = (totalToday / dailyBudget) * 100.0;
         int pctInt = (int) Math.round(pct);
-
         if (percentTv != null) {
             try {
                 percentTv.setText(String.format(Locale.getDefault(), "Daily Budget Used : %d%%", pctInt));
             } catch (Throwable ignored) {}
         }
-
         if (dailyProgress != null) {
             try {
                 int progress = pctInt;
@@ -117,55 +116,5 @@ public class HomeFragment extends Fragment {
         c.set(Calendar.SECOND, 0);
         c.set(Calendar.MILLISECOND, 0);
         return c.getTimeInMillis();
-    }
-
-    private double deriveDailyBudgetFromPrefs(SharedPreferences prefs) {
-        if (prefs == null) return 0.0;
-        double allocated = 0.0;
-        try {
-            String s = prefs.getString("budget_amount", null);
-            if (s != null) {
-                allocated = Double.parseDouble(s);
-            } else {
-                String alt = prefs.getString("allocation_allocated", null);
-                if (alt != null) allocated = Double.parseDouble(alt);
-            }
-        } catch (Exception ignored) {}
-
-        if (allocated <= 0.0) return 0.0;
-
-        String period = prefs.getString("budget_period", prefs.getString("period", "Monthly"));
-        if (period == null) period = "monthly";
-        period = period.toLowerCase(Locale.ROOT);
-
-        int daysLeftMonth = daysLeftIncludingToday();
-        int daysLeftWeek = daysLeftInWeekIncludingToday();
-
-        switch (period) {
-            case "daily":
-                return allocated;
-            case "weekly":
-                if (daysLeftWeek > 0) return (allocated / (double) daysLeftWeek);
-                return allocated / 7.0;
-            case "monthly":
-            default:
-                if (daysLeftMonth > 0) return (allocated / (double) daysLeftMonth);
-                return allocated / 30.0;
-        }
-    }
-
-    private int daysLeftIncludingToday() {
-        Calendar now = Calendar.getInstance();
-        int today = now.get(Calendar.DAY_OF_MONTH);
-        int maxDay = now.getActualMaximum(Calendar.DAY_OF_MONTH);
-        return Math.max(1, maxDay - today + 1);
-    }
-
-    private int daysLeftInWeekIncludingToday() {
-        Calendar now = Calendar.getInstance();
-        int today = now.get(Calendar.DAY_OF_WEEK);
-        int daysUntilSunday = (Calendar.SUNDAY - today);
-        if (daysUntilSunday < 0) daysUntilSunday += 7;
-        return daysUntilSunday + 1;
     }
 }

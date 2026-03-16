@@ -43,12 +43,9 @@ public class MainActivity extends AppCompatActivity {
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         boolean dark = prefs.getBoolean(KEY_DARK, false);
         AppCompatDelegate.setDefaultNightMode(dark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         NotificationUtils.createNotificationChannel(this);
-
         requestNotificationPermission = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(), granted -> {
                     if (granted) {
@@ -57,19 +54,15 @@ public class MainActivity extends AppCompatActivity {
                         Log.d(TAG, "Notification permission denied");
                     }
                 });
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
                 requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS);
             }
         }
-
         bottomNav = findViewById(R.id.bottomNav);
         fabAdd = findViewById(R.id.fabAdd);
-
         if (bottomNav != null) bottomNav.setItemIconTintList(null);
-
         final SharedPreferences finalPrefs = prefs;
         bottomNav.setOnItemSelectedListener(new NavigationBarView.OnItemSelectedListener() {
             @Override
@@ -85,29 +78,15 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-
         fabAdd.setOnClickListener(v -> {
-            Log.d(TAG, "FAB clicked");
             AddExpenseDialogFragment dlg = new AddExpenseDialogFragment();
             dlg.show(getSupportFragmentManager(), "add_expense_dialog");
         });
-
         prefsListener = new SharedPreferences.OnSharedPreferenceChangeListener() {
             @Override
             public void onSharedPreferenceChanged(final SharedPreferences sharedPreferences, final String key) {
                 if ("expenses_json".equals(key)) {
                     final String json = sharedPreferences.getString("expenses_json", "[]");
-                    int count = 0;
-                    try {
-                        Type type = new TypeToken<List<Expense>>() {}.getType();
-                        List<Expense> list = gson.fromJson(json, type);
-                        if (list != null) count = list.size();
-                    } catch (Exception e) {
-                        Log.w(TAG, "Failed to parse expenses_json in prefs listener", e);
-                    }
-
-                    final int finalCount = count;
-
                     try {
                         Type type = new TypeToken<List<Expense>>() {}.getType();
                         List<Expense> list = gson.fromJson(json, type);
@@ -117,21 +96,25 @@ public class MainActivity extends AppCompatActivity {
                     } catch (Exception ex) {
                         Log.w(TAG, "Failed to run BudgetChecker from prefs listener", ex);
                     }
-
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+                            int count = 0;
+                            try {
+                                Type type = new TypeToken<List<Expense>>() {}.getType();
+                                List<Expense> list = gson.fromJson(json, type);
+                                if (list != null) count = list.size();
+                            } catch (Exception e) {
+                            }
                             Bundle bundle = new Bundle();
-                            bundle.putInt("count", finalCount);
+                            bundle.putInt("count", count);
                             getSupportFragmentManager().setFragmentResult("expenses_changed", bundle);
                         }
                     });
                 }
             }
         };
-
         prefs.registerOnSharedPreferenceChangeListener(prefsListener);
-
         int selectedId = prefs.getInt(KEY_SELECTED_NAV, R.id.nav_home);
         bottomNav.setSelectedItemId(selectedId);
     }
@@ -166,22 +149,7 @@ public class MainActivity extends AppCompatActivity {
             if (list == null) return new java.util.ArrayList<>();
             return list;
         } catch (Exception e) {
-            Log.w(TAG, "Failed to parse expenses_json in getExpensesFromPrefs", e);
             return new java.util.ArrayList<>();
         }
-    }
-
-    private void runQuickBudgetDebug() {
-        Log.d(TAG, "Running quick budget debug: setting budget_amount=10.0 (daily), clearing last-notified keys");
-        SharedPreferences p = getSharedPreferences(PREFS, MODE_PRIVATE);
-        p.edit()
-                .putString("budget_amount", "10.0")
-                .putString("budget_period", "daily")
-                .remove("last_notified_daily")
-                .remove("last_notified_weekly")
-                .remove("last_notified_monthly")
-                .apply();
-
-        NotificationUtils.sendNotification(this, "DEBUG test", "Budget debug: 10.0 daily set and cleared flags");
     }
 }

@@ -3,15 +3,11 @@ package com.example.bwme;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -50,25 +46,20 @@ public class ExpensesFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
         rv = view.findViewById(R.id.expenseRecycler);
         totalText = view.findViewById(R.id.totalText);
         percentText = view.findViewById(R.id.percentText);
         addBtn = view.findViewById(R.id.openAddBtn);
-
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new ExpenseAdapter(new ArrayList<Expense>());
         rv.setAdapter(adapter);
-
         loadState();
         updateTotals();
-
         getParentFragmentManager().setFragmentResultListener("expenses_changed", this,
                 (requestKey, result) -> {
                     loadState();
                     updateTotals();
                 });
-
         addBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -82,10 +73,8 @@ public class ExpensesFragment extends Fragment {
         try {
             Context ctx = requireActivity();
             SharedPreferences prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-
             String expJson = prefs.getString("expenses_json", "[]");
             if (expJson == null) expJson = "[]";
-
             Type type = new TypeToken<ArrayList<Expense>>() {}.getType();
             List<Expense> list;
             try {
@@ -94,12 +83,9 @@ public class ExpensesFragment extends Fragment {
             } catch (Exception ex) {
                 list = new ArrayList<>();
             }
-
             expenses.clear();
             expenses.addAll(list);
-
             adapter.updateItems(new ArrayList<>(expenses));
-
             String alloc = prefs.getString("allocation_allocated", null);
             if (alloc == null) alloc = prefs.getString("allocation", "0.0");
             try { allocation = Double.parseDouble(alloc); } catch (Exception e) { allocation = 0.0; }
@@ -126,14 +112,11 @@ public class ExpensesFragment extends Fragment {
         }
         if (totalText != null)
             totalText.setText("Total: ₱ " + String.format(Locale.getDefault(), "%.2f", total));
-
         int percent = 0;
         if (allocation > 0.0) {
             percent = (int) ((total / allocation) * 100.0);
         }
         if (percentText != null) percentText.setText("Used of allocation: " + percent + "%");
-
-        if (rv.getAdapter() != null) rv.getAdapter().notifyDataSetChanged();
     }
 
     public void appendExpense(Expense e) {

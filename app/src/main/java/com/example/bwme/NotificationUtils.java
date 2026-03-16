@@ -47,10 +47,13 @@ public final class NotificationUtils {
             }
         }
 
+        NotificationCompat.BigTextStyle big = new NotificationCompat.BigTextStyle().bigText(body);
+
         NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_notify_error)
                 .setContentTitle(title)
                 .setContentText(body)
+                .setStyle(big)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH);
 

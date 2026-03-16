@@ -13,7 +13,7 @@
         android:id="@+id/labelAllocated"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Allocated Allowance (for chosen period)"
+        android:text="Budget Allocation"
         android:textStyle="bold"
         android:textColor="?attr/bwme_onSurface"
         app:layout_constraintStart_toStartOf="parent"
@@ -112,13 +112,65 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="8dp"/>
 
+    <Button
+        android:id="@+id/profileAllocatedExpenses"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Allocated Expenses"
+        app:layout_constraintTop_toBottomOf="@id/profileReset"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:id="@+id/profileAllocatedTotal"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Allocated expenses total: ₱ 0.00"
+        app:layout_constraintTop_toBottomOf="@id/profileAllocatedExpenses"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="6dp"
+        android:textColor="?attr/bwme_onSurface"/>
+
+    <Button
+        android:id="@+id/profileSavings"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Savings"
+        app:layout_constraintTop_toBottomOf="@id/profileAllocatedTotal"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:id="@+id/profileSavingsTotal"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Savings (monthly equiv): ₱ 0.00"
+        app:layout_constraintTop_toBottomOf="@id/profileSavings"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="6dp"
+        android:textColor="?attr/bwme_onSurface"/>
+
+    <Button
+        android:id="@+id/profileLogout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Logout"
+        app:layout_constraintTop_toBottomOf="@id/profileSavingsTotal"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="12dp"/>
+
     <Switch
         android:id="@+id/switchDarkMode"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Dark Mode"
         android:textColor="?attr/bwme_onSurface"
-        app:layout_constraintTop_toBottomOf="@id/profileReset"
+        app:layout_constraintTop_toBottomOf="@id/profileLogout"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginTop="16dp"/>
 

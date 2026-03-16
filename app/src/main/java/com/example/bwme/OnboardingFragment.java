@@ -3,8 +3,6 @@ package com.example.bwme;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,32 +33,22 @@ public class OnboardingFragment extends Fragment {
         calculatedPeriodSpinner = view.findViewById(R.id.onboardingCalculatedPeriodSpinner);
         calculatedValueTv = view.findViewById(R.id.onboardingCalculatedValue);
         continueBtn = view.findViewById(R.id.onboardingContinueBtn);
-
         String[] options = new String[] {"Daily", "Weekly", "Monthly"};
         ArrayAdapter<String> periodAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, options);
         periodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         periodSpinner.setAdapter(periodAdapter);
-
         ArrayAdapter<String> calcAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, options);
         calcAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         calculatedPeriodSpinner.setAdapter(calcAdapter);
-
         periodSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View v, int pos, long id) { recalcPreview(); }
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
-
         calculatedPeriodSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View v, int pos, long id) { recalcPreview(); }
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
-
-        allocatedEt.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) { recalcPreview(); }
-        });
-
+        allocatedEt.addTextChangedListener(new SimpleTextWatcher(() -> recalcPreview()));
         continueBtn.setOnClickListener(v -> {
             Double allocated = parseDouble(allocatedEt.getText().toString());
             if (allocated == null || allocated <= 0.0) {
@@ -68,7 +56,6 @@ public class OnboardingFragment extends Fragment {
                 return;
             }
             String period = (String) periodSpinner.getSelectedItem();
-
             SharedPreferences prefs = requireActivity().getSharedPreferences(prefsName, Context.MODE_PRIVATE);
             prefs.edit()
                     .putString("allocation_allocated", allocated.toString())
@@ -78,21 +65,18 @@ public class OnboardingFragment extends Fragment {
                     .putString("budget_amount", allocated.toString())
                     .putString("budget_period", period)
                     .apply();
-
             try {
                 if (requireActivity() instanceof MainActivity) {
                     java.util.List<Expense> list = ((MainActivity) requireActivity()).getExpensesFromPrefs();
                     BudgetChecker.checkAndNotify(requireContext(), list);
                 }
             } catch (Exception ignored) {}
-
             requireActivity().getSupportFragmentManager()
                     .beginTransaction()
                     .replace(R.id.fragmentContainer, new HomeFragment())
                     .commit();
         });
-
-        calculatedPeriodSpinner.setSelection(0); // Daily by default
+        calculatedPeriodSpinner.setSelection(0);
         recalcPreview();
     }
 
@@ -102,13 +86,10 @@ public class OnboardingFragment extends Fragment {
             calculatedValueTv.setText("");
             return;
         }
-
         String inputPeriod = (String) (periodSpinner.getSelectedItem() != null ? periodSpinner.getSelectedItem() : "Daily");
         String showPeriod = (String) (calculatedPeriodSpinner.getSelectedItem() != null ? calculatedPeriodSpinner.getSelectedItem() : "Daily");
-
         int daysLeftMonth = daysLeftIncludingToday();
         int daysLeftWeek = daysLeftInWeekIncludingToday();
-
         double daily = 0.0, weekly = 0.0, monthly = 0.0;
         switch (inputPeriod.toLowerCase(Locale.ROOT)) {
             case "daily":
@@ -128,7 +109,6 @@ public class OnboardingFragment extends Fragment {
                 weekly = daily * daysLeftWeek;
                 break;
         }
-
         String out;
         switch (showPeriod.toLowerCase(Locale.ROOT)) {
             case "weekly":
@@ -142,7 +122,6 @@ public class OnboardingFragment extends Fragment {
                 out = String.format(Locale.getDefault(), "Daily: ₱ %.2f", daily);
                 break;
         }
-
         calculatedValueTv.setText(out);
     }
 
