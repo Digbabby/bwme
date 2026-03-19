@@ -1,9 +1,14 @@
 package com.example.bwme;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
@@ -44,7 +49,50 @@ public class ProfileFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState){
-        return inflater.inflate(R.layout.fragment_profile, container, false);
+
+        View view = inflater.inflate(R.layout.fragment_profile, container, false);
+
+        profilepic = view.findViewById(R.id.profilepic);
+        changebtn = view.findViewById(R.id.changebtn);
+
+        prefs = getActivity().getSharedPreferences("profile", Activity.MODE_PRIVATE);
+
+        String savedImage = prefs.getString("image", null);
+
+        imagePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+
+                        Intent data = result.getData();
+
+                        if (data != null) {
+
+                            Uri imageUri = data.getData();
+                            profilepic.setImageURI(imageUri);
+
+                            SharedPreferences.Editor editor = prefs.edit();
+                            editor.putString("image", imageUri.toString());
+                            editor.apply();
+                        }
+                    }
+                }
+        );
+
+        if (savedImage != null) {
+            profilepic.setImageURI(Uri.parse(savedImage));
+        }
+
+        changebtn.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_PICK);
+            intent.setType("image/*"); // FIXED
+
+            imagePickerLauncher.launch(intent);
+        });
+
+        return  view;
+
     }
 
     @Override
@@ -263,4 +311,14 @@ public class ProfileFragment extends Fragment {
             return null;
         }
     }
+
+    ImageView profilepic;
+    Button changebtn;
+
+    private static int PICK_IMAGE = 1;
+    Uri imageUri;
+
+    SharedPreferences prefs;
+
+    ActivityResultLauncher<Intent> imagePickerLauncher;
 }
