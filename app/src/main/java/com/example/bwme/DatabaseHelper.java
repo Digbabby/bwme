@@ -105,4 +105,28 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return false;
     }
 
+    public String getProfilePic(String username) {
+        SQLiteDatabase MyDB = this.getReadableDatabase();
+        Cursor cursor = MyDB.rawQuery("Select profilePic from users where username = ?", new String[]{username});
+        if (cursor.moveToFirst()) {
+            String pic = cursor.getString(0);
+            cursor.close();
+            return pic;
+        }
+        cursor.close();
+        return null;
+    }
+
+    public String getDisplayName(String username) {
+        SQLiteDatabase MyDB = this.getReadableDatabase();
+        Cursor cursor = MyDB.rawQuery("Select displayName from users where username = ?", new String[]{username});
+        if (cursor.moveToFirst()) {
+            String name = cursor.getString(0);
+            cursor.close();
+            return name;
+        }
+        cursor.close();
+        return null;
+    }
+
 }

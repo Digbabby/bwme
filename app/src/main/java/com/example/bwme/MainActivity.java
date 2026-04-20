@@ -94,6 +94,8 @@ public class MainActivity extends AppCompatActivity {
                     } else {
                         Toast.makeText(this, "Profile Saved with default picture", Toast.LENGTH_SHORT).show();
                     }
+                    // After picking image (or cancelling), go to Profile
+                    navigateToProfile();
                 }
         );
 
@@ -191,6 +193,12 @@ public class MainActivity extends AppCompatActivity {
                 .commit();
     }
 
+    private void navigateToProfile() {
+        if (bottomNav != null) {
+            bottomNav.setSelectedItemId(R.id.nav_profile);
+        }
+    }
+
     public List<Expense> getExpensesFromPrefs() {
         String json = prefs.getString("expenses_json", "[]");
         try {
@@ -249,6 +257,7 @@ public class MainActivity extends AppCompatActivity {
 
         builder.setNegativeButton("Skip", (dialog, which) -> {
             Toast.makeText(this, "Profile Saved!", Toast.LENGTH_SHORT).show();
+            navigateToProfile();
         });
 
         builder.show();
