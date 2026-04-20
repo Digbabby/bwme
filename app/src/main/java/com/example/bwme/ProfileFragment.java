@@ -40,8 +40,11 @@ public class ProfileFragment extends Fragment {
     private Button savingsBtn;
     private TextView savingsTotalTv;
     private Switch darkSwitch;
+    private TextView profileNameTv;
     private final String prefsName = MainActivity.PREFS;
     private final Gson gson = new Gson();
+    private DatabaseHelper DB;
+    private String loggedInUser;
 
     public ProfileFragment() {
     }
@@ -54,45 +57,57 @@ public class ProfileFragment extends Fragment {
 
         profilepic = view.findViewById(R.id.profilepic);
         changebtn = view.findViewById(R.id.changebtn);
+        profileNameTv = view.findViewById(R.id.profile_name); // Assuming this ID exists
 
-        prefs = getActivity().getSharedPreferences("profile", Activity.MODE_PRIVATE);
+        DB = new DatabaseHelper(requireContext());
+        SharedPreferences sp = requireActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE);
+        loggedInUser = sp.getString("username", "");
 
-        String savedImage = prefs.getString("image", null);
+        loadProfileData();
 
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-
-                    if (result.getResultCode() == Activity.RESULT_OK) {
-
-                        Intent data = result.getData();
-
-                        if (data != null) {
-
-                            Uri imageUri = data.getData();
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        Uri imageUri = result.getData().getData();
+                        if (imageUri != null) {
+                            // Update DB
+                            String displayName = DB.getDisplayName(loggedInUser);
+                            DB.updateProfile(loggedInUser, displayName, imageUri.toString());
+                            // Update UI
                             profilepic.setImageURI(imageUri);
-
-                            SharedPreferences.Editor editor = prefs.edit();
-                            editor.putString("image", imageUri.toString());
-                            editor.apply();
                         }
                     }
                 }
         );
 
-        if (savedImage != null) {
-            profilepic.setImageURI(Uri.parse(savedImage));
-        }
-
         changebtn.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_PICK);
-            intent.setType("image/*"); // FIXED
-
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("image/*");
             imagePickerLauncher.launch(intent);
         });
 
-        return  view;
+        return view;
+    }
 
+    private void loadProfileData() {
+        if (loggedInUser.isEmpty()) return;
+
+        String picPath = DB.getProfilePic(loggedInUser);
+        String displayName = DB.getDisplayName(loggedInUser);
+
+        if (profileNameTv != null && displayName != null) {
+            profileNameTv.setText(displayName);
+        }
+
+        if (picPath != null && !picPath.equals("default_pic")) {
+            try {
+                profilepic.setImageURI(Uri.parse(picPath));
+            } catch (Exception e) {
+                profilepic.setImageResource(R.drawable.profile_placeholder); // Fallback
+            }
+        }
     }
 
     @Override
@@ -317,8 +332,6 @@ public class ProfileFragment extends Fragment {
 
     private static int PICK_IMAGE = 1;
     Uri imageUri;
-
-    SharedPreferences prefs;
 
     ActivityResultLauncher<Intent> imagePickerLauncher;
 }
