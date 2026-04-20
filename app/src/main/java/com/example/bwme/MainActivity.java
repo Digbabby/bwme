@@ -3,13 +3,18 @@ package com.example.bwme;
 import android.Manifest;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
+import android.widget.EditText;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
@@ -35,8 +40,12 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences prefs;
     private SharedPreferences.OnSharedPreferenceChangeListener prefsListener;
     private final Gson gson = new Gson();
+    private DatabaseHelper DB;
 
     private ActivityResultLauncher<String> requestNotificationPermission;
+    private ActivityResultLauncher<String> pickImageLauncher;
+    private String tempUsername;
+    private String tempDisplayName;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,7 +54,28 @@ public class MainActivity extends AppCompatActivity {
         AppCompatDelegate.setDefaultNightMode(dark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        DB = new DatabaseHelper(this);
         NotificationUtils.createNotificationChannel(this);
+
+        SharedPreferences sp = getSharedPreferences("UserSession", MODE_PRIVATE);
+        String loggedInUser = sp.getString("username", "");
+
+        Cursor cursor = DB.getExpensesByUser(loggedInUser);
+
+        if (cursor.getCount() == 0) {
+            Toast.makeText(this, "No expenses found", Toast.LENGTH_SHORT).show();
+        } else {
+            while (cursor.moveToNext()) {
+                String amount = cursor.getString(2);
+                String category = cursor.getString(3);
+            }
+        }
+
+        if (!loggedInUser.isEmpty() && DB.checkUsername(loggedInUser) && !DB.isProfileNameSet(loggedInUser)) {
+            showSetupDialog(loggedInUser);
+        }
+
         requestNotificationPermission = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(), granted -> {
                     if (granted) {
@@ -54,15 +84,30 @@ public class MainActivity extends AppCompatActivity {
                         Log.d(TAG, "Notification permission denied");
                     }
                 });
+
+        pickImageLauncher = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (uri != null) {
+                        DB.updateProfile(tempUsername, tempDisplayName, uri.toString());
+                        Toast.makeText(this, "Profile Saved with Image!", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Profile Saved with default picture", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
                 requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS);
             }
         }
+
         bottomNav = findViewById(R.id.bottomNav);
         fabAdd = findViewById(R.id.fabAdd);
         if (bottomNav != null) bottomNav.setItemIconTintList(null);
+
         final SharedPreferences finalPrefs = prefs;
         bottomNav.setOnItemSelectedListener(new NavigationBarView.OnItemSelectedListener() {
             @Override
@@ -78,10 +123,12 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
         fabAdd.setOnClickListener(v -> {
             AddExpenseDialogFragment dlg = new AddExpenseDialogFragment();
             dlg.show(getSupportFragmentManager(), "add_expense_dialog");
         });
+
         prefsListener = new SharedPreferences.OnSharedPreferenceChangeListener() {
             @Override
             public void onSharedPreferenceChanged(final SharedPreferences sharedPreferences, final String key) {
@@ -114,9 +161,12 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
+
         prefs.registerOnSharedPreferenceChangeListener(prefsListener);
         int selectedId = prefs.getInt(KEY_SELECTED_NAV, R.id.nav_home);
-        bottomNav.setSelectedItemId(selectedId);
+        if (bottomNav != null) {
+            bottomNav.setSelectedItemId(selectedId);
+        }
     }
 
     @Override
@@ -151,5 +201,56 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             return new java.util.ArrayList<>();
         }
+    }
+
+    private boolean isProfileIncomplete(String username) {
+        Cursor cursor = DB.getReadableDatabase().rawQuery("Select displayName from users where username = ?", new String[]{username});
+        if (cursor.moveToFirst()) {
+            String name = cursor.getString(0);
+            return name == null || name.isEmpty();
+        }
+        return true;
+    }
+
+    private void showSetupDialog(String username) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Complete Your Profile");
+        builder.setCancelable(false);
+
+        final EditText input = new EditText(this);
+        input.setHint("Enter your Display Name");
+        builder.setView(input);
+
+        builder.setPositiveButton("Next", (dialog, which) -> {
+            String name = input.getText().toString().trim();
+            if (!name.isEmpty()) {
+                tempUsername = username;
+                tempDisplayName = name;
+                DB.updateProfile(username, name, "default_pic");
+                showImagePickDialog();
+            } else {
+                Toast.makeText(this, "Name is required", Toast.LENGTH_SHORT).show();
+                showSetupDialog(username);
+            }
+        });
+
+        builder.show();
+    }
+
+    private void showImagePickDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Profile Picture");
+        builder.setMessage("Would you like to set a profile picture?");
+        builder.setCancelable(false);
+
+        builder.setPositiveButton("Pick Image", (dialog, which) -> {
+            pickImageLauncher.launch("image/*");
+        });
+
+        builder.setNegativeButton("Skip", (dialog, which) -> {
+            Toast.makeText(this, "Profile Saved!", Toast.LENGTH_SHORT).show();
+        });
+
+        builder.show();
     }
 }
