@@ -1,39 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:padding="12dp"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fillViewport="true">
 
-    <TextView
-        android:id="@+id/homeTotal"
-        android:text="Total spent: 0"
+    <LinearLayout
+        android:orientation="vertical"
+        android:padding="12dp"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textStyle="bold"/>
+        android:layout_height="wrap_content">
 
-    <TextView
-        android:id="@+id/homePercent"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Daily Budget Used : 0%"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="4dp" />
+        <TextView
+            android:id="@+id/homeTotal"
+            android:text="Total spent: 0"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textStyle="bold"
+            android:textSize="18sp"/>
 
-    <ProgressBar
-        android:id="@+id/homeDailyProgress"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="8dp"
-        android:max="100"
-        android:progress="0"
-        android:indeterminate="false"
-        android:layout_marginBottom="12dp" />
+        <TextView
+            android:id="@+id/homePercent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Daily Budget Used : 0%"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/homeRecycler"
-        android:layout_width="match_parent"
-        android:layout_height="611dp"
-        android:layout_weight="1" />
+        <ProgressBar
+            android:id="@+id/homeDailyProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:max="100"
+            android:progress="0"
+            android:indeterminate="false"
+            android:layout_marginBottom="12dp" />
 
-</LinearLayout>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Top 5 Places (Most Spent)"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp"/>
+
+        <TextView
+            android:id="@+id/topPlacesTv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1. -\n2. -\n3. -\n4. -\n5. -"
+            android:lineSpacingExtra="2dp"
+            android:layout_marginBottom="12dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Recent Expenses"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/homeRecycler"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
+
+    </LinearLayout>
+</ScrollView>

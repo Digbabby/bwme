@@ -26,14 +26,6 @@
         app:layout_constraintEnd_toEndOf="parent">
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/btnSave"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:src="@android:drawable/ic_menu_save"
-            app:tint="@color/white" />
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btnDelete"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

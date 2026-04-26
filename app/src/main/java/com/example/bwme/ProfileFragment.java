@@ -41,10 +41,14 @@ public class ProfileFragment extends Fragment {
     private TextView savingsTotalTv;
     private Switch darkSwitch;
     private TextView profileNameTv;
-    private final String prefsName = MainActivity.PREFS;
+    private ImageView profilepic;
+    private Button changebtn;
     private final Gson gson = new Gson();
     private DatabaseHelper DB;
     private String loggedInUser;
+    private String userPrefsName;
+
+    private ActivityResultLauncher<Intent> imagePickerLauncher;
 
     public ProfileFragment() {
     }
@@ -57,11 +61,12 @@ public class ProfileFragment extends Fragment {
 
         profilepic = view.findViewById(R.id.profilepic);
         changebtn = view.findViewById(R.id.changebtn);
-        profileNameTv = view.findViewById(R.id.profile_name); // Assuming this ID exists
+        profileNameTv = view.findViewById(R.id.profile_name);
 
         DB = new DatabaseHelper(requireContext());
         SharedPreferences sp = requireActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE);
         loggedInUser = sp.getString("username", "");
+        userPrefsName = MainActivity.PREFS + (loggedInUser.isEmpty() ? "" : "_" + loggedInUser);
 
         loadProfileData();
 
@@ -71,10 +76,12 @@ public class ProfileFragment extends Fragment {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
-                            // Update DB
+                            try {
+                                requireContext().getContentResolver().takePersistableUriPermission(imageUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            } catch (SecurityException ignored) {}
+                            
                             String displayName = DB.getDisplayName(loggedInUser);
                             DB.updateProfile(loggedInUser, displayName, imageUri.toString());
-                            // Update UI
                             profilepic.setImageURI(imageUri);
                         }
                     }
@@ -131,7 +138,7 @@ public class ProfileFragment extends Fragment {
         periodSpinner.setAdapter(adapter);
         calculatedPeriodSpinner.setAdapter(adapter);
 
-        final SharedPreferences prefs = requireActivity().getSharedPreferences(prefsName, Context.MODE_PRIVATE);
+        final SharedPreferences prefs = requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE);
 
         String savedAllocated = prefs.getString("allocation_allocated", "");
         allocatedEt.setText(savedAllocated);
@@ -235,14 +242,14 @@ public class ProfileFragment extends Fragment {
     }
 
     private void updateAllocatedExpensesTotal() {
-        double total = BudgetChecker.sumAllocatedExpenses(requireActivity().getSharedPreferences(prefsName, Context.MODE_PRIVATE));
+        double total = BudgetChecker.sumAllocatedExpenses(requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE));
         if (allocatedExpensesTotalTv != null) {
             allocatedExpensesTotalTv.setText(String.format(Locale.getDefault(), "Allocated expenses total: ₱ %.2f", total));
         }
     }
 
     private void updateSavingsTotal() {
-        double total = BudgetChecker.sumSavingsMonthly(requireActivity().getSharedPreferences(prefsName, Context.MODE_PRIVATE));
+        double total = BudgetChecker.sumSavingsMonthly(requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE));
         if (savingsTotalTv != null) {
             savingsTotalTv.setText(String.format(Locale.getDefault(), "Savings (monthly equiv): ₱ %.2f", total));
         }
@@ -276,7 +283,7 @@ public class ProfileFragment extends Fragment {
                 break;
         }
 
-        SharedPreferences prefs = requireActivity().getSharedPreferences(prefsName, Context.MODE_PRIVATE);
+        SharedPreferences prefs = requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE);
         double allocatedDeduction = BudgetChecker.sumAllocatedExpenses(prefs);
         double savingsMonthly = BudgetChecker.sumSavingsMonthly(prefs);
         double remainingMonthly = monthlyFromInput - allocatedDeduction - savingsMonthly;
@@ -326,12 +333,4 @@ public class ProfileFragment extends Fragment {
             return null;
         }
     }
-
-    ImageView profilepic;
-    Button changebtn;
-
-    private static int PICK_IMAGE = 1;
-    Uri imageUri;
-
-    ActivityResultLauncher<Intent> imagePickerLauncher;
 }

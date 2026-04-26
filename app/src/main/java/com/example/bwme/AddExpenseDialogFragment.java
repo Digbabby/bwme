@@ -39,8 +39,11 @@ import com.google.gson.reflect.TypeToken;
 import java.lang.Exception;
 import java.lang.SecurityException;
 import java.lang.reflect.Type;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class AddExpenseDialogFragment extends DialogFragment {
     private static final String TAG = "AddExpense";
@@ -48,10 +51,12 @@ public class AddExpenseDialogFragment extends DialogFragment {
     private double pendingAmount = 0.0;
     private String pendingDesc = "Expense";
     private String pendingCategory = "Other";
+    private String pendingLocationName = "";
     private Context appContext = null;
     private ActivityResultLauncher<String> requestLocation;
     private EditText amountEt;
     private EditText descEt;
+    private EditText locationNameEt;
     private Spinner categorySpinner;
 
     @Override
@@ -85,6 +90,7 @@ public class AddExpenseDialogFragment extends DialogFragment {
         View v = LayoutInflater.from(ctx).inflate(R.layout.dialog_add_expense, null);
         amountEt = v.findViewById(R.id.dialogAmount);
         descEt = v.findViewById(R.id.dialogDesc);
+        locationNameEt = v.findViewById(R.id.dialogLocationName);
         categorySpinner = v.findViewById(R.id.dialogCategory);
 
         if (categorySpinner != null) {
@@ -122,6 +128,9 @@ public class AddExpenseDialogFragment extends DialogFragment {
                     try { amt = Double.parseDouble(amtStr); } catch (NumberFormatException ignored) { }
                     String desc = descEt.getText().toString().trim();
                     if (desc.isEmpty()) desc = "Expense";
+                    
+                    String locName = locationNameEt != null ? locationNameEt.getText().toString().trim() : "";
+                    
                     if (categorySpinner != null && categorySpinner.getSelectedItem() != null) {
                         pendingCategory = categorySpinner.getSelectedItem().toString();
                     } else {
@@ -133,7 +142,15 @@ public class AddExpenseDialogFragment extends DialogFragment {
                     }
                     pendingAmount = amt;
                     pendingDesc = desc;
-                    showLocationChoiceDialog(dialogCtx);
+                    pendingLocationName = locName;
+
+                    boolean hasLoc = ContextCompat.checkSelfPermission(dialogCtx, Manifest.permission.ACCESS_FINE_LOCATION)
+                            == PackageManager.PERMISSION_GRANTED;
+                    if (hasLoc) {
+                        fetchLocationAndSave();
+                    } else {
+                        showLocationChoiceDialog(dialogCtx);
+                    }
                 } catch (Exception ex) {
                     Log.e(TAG, "Add button exception", ex);
                     Toast.makeText(dialogCtx, "Failed to add expense: " + ex.getMessage(), Toast.LENGTH_LONG).show();
@@ -286,7 +303,7 @@ public class AddExpenseDialogFragment extends DialogFragment {
             return;
         }
         try {
-            SharedPreferences prefs = ctx.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE);
+            SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
             String expJson = prefs.getString("expenses_json", "[]");
             Type type = new TypeToken<List<Expense>>() {}.getType();
             List<Expense> list;
@@ -297,11 +314,23 @@ public class AddExpenseDialogFragment extends DialogFragment {
                 Log.w(TAG, "JSON parse failed, creating new list", e);
                 list = new ArrayList<>();
             }
+            
+            long time = System.currentTimeMillis();
             Expense e;
             if (locPair != null && locPair.length >= 2) {
-                e = new Expense(pendingAmount, pendingDesc, System.currentTimeMillis(), locPair[0], locPair[1], pendingCategory);
+                e = new Expense(pendingAmount, pendingDesc, time, locPair[0], locPair[1], pendingCategory);
+                
+                // Automatically save to VisitedPlace if a name was provided
+                if (!pendingLocationName.isEmpty()) {
+                    String date = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(time));
+                    VisitedPlace vp = new VisitedPlace(locPair[0], locPair[1], time, date, pendingLocationName);
+                    final Context finalCtx = ctx;
+                    new Thread(() -> {
+                        AppDatabase.getInstance(finalCtx).visitedPlaceDao().insert(vp);
+                    }).start();
+                }
             } else {
-                e = new Expense(pendingAmount, pendingDesc, System.currentTimeMillis(), null, null, pendingCategory);
+                e = new Expense(pendingAmount, pendingDesc, time, null, null, pendingCategory);
             }
             list.add(0, e);
             String newJson = gson.toJson(list);
@@ -336,6 +365,7 @@ public class AddExpenseDialogFragment extends DialogFragment {
             pendingAmount = 0.0;
             pendingDesc = "Expense";
             pendingCategory = "Other";
+            pendingLocationName = "";
         }
     }
 }

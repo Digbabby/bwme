@@ -20,6 +20,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"/>
 
+    <EditText
+        android:id="@+id/dialogLocationName"
+        android:hint="Location Name (e.g. McDonald's)"
+        android:inputType="text"
+        android:layout_marginTop="8dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
     <Spinner
         android:id="@+id/dialogCategory"
         android:layout_width="match_parent"
