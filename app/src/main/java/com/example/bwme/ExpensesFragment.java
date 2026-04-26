@@ -33,7 +33,6 @@ public class ExpensesFragment extends Fragment {
     private ExpenseAdapter adapter;
     private List<Expense> expenses = new ArrayList<>();
     private double allocation = 0.0;
-    private static final String PREFS_NAME = MainActivity.PREFS;
 
     @Nullable
     @Override
@@ -55,7 +54,7 @@ public class ExpensesFragment extends Fragment {
         rv.setAdapter(adapter);
         loadState();
         updateTotals();
-        getParentFragmentManager().setFragmentResultListener("expenses_changed", this,
+        getParentFragmentManager().setFragmentResultListener("expenses_changed", getViewLifecycleOwner(),
                 (requestKey, result) -> {
                     loadState();
                     updateTotals();
@@ -71,8 +70,8 @@ public class ExpensesFragment extends Fragment {
 
     private void loadState() {
         try {
-            Context ctx = requireActivity();
-            SharedPreferences prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            Context ctx = requireContext();
+            SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
             String expJson = prefs.getString("expenses_json", "[]");
             if (expJson == null) expJson = "[]";
             Type type = new TypeToken<ArrayList<Expense>>() {}.getType();
@@ -98,7 +97,7 @@ public class ExpensesFragment extends Fragment {
 
     private void saveExpenses() {
         try {
-            SharedPreferences prefs = requireActivity().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            SharedPreferences prefs = MainActivity.getUserPrefs(requireContext());
             String json = gson.toJson(expenses);
             prefs.edit().putString("expenses_json", json).apply();
         } catch (Exception ignored) {}

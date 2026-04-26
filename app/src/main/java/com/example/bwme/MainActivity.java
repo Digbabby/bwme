@@ -1,6 +1,7 @@
 package com.example.bwme;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -47,9 +48,19 @@ public class MainActivity extends AppCompatActivity {
     private String tempUsername;
     private String tempDisplayName;
 
+    public static SharedPreferences getUserPrefs(Context context) {
+        SharedPreferences session = context.getSharedPreferences("UserSession", Context.MODE_PRIVATE);
+        String loggedInUser = session.getString("username", "");
+        String userPrefsName = PREFS + (loggedInUser.isEmpty() ? "" : "_" + loggedInUser);
+        return context.getSharedPreferences(userPrefsName, Context.MODE_PRIVATE);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        prefs = getUserPrefs(this);
+        SharedPreferences session = getSharedPreferences("UserSession", MODE_PRIVATE);
+        String loggedInUser = session.getString("username", "");
+
         boolean dark = prefs.getBoolean(KEY_DARK, false);
         AppCompatDelegate.setDefaultNightMode(dark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
         super.onCreate(savedInstanceState);
@@ -57,9 +68,6 @@ public class MainActivity extends AppCompatActivity {
 
         DB = new DatabaseHelper(this);
         NotificationUtils.createNotificationChannel(this);
-
-        SharedPreferences sp = getSharedPreferences("UserSession", MODE_PRIVATE);
-        String loggedInUser = sp.getString("username", "");
 
         Cursor cursor = DB.getExpensesByUser(loggedInUser);
 
@@ -110,7 +118,6 @@ public class MainActivity extends AppCompatActivity {
         fabAdd = findViewById(R.id.fabAdd);
         if (bottomNav != null) bottomNav.setItemIconTintList(null);
 
-        final SharedPreferences finalPrefs = prefs;
         bottomNav.setOnItemSelectedListener(new NavigationBarView.OnItemSelectedListener() {
             @Override
             public boolean onNavigationItemSelected(MenuItem item) {
@@ -118,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
                 Fragment frag = fragmentForNav(id);
                 if (frag != null) {
                     openFragment(frag);
-                    finalPrefs.edit().putInt(KEY_SELECTED_NAV, id).apply();
+                    prefs.edit().putInt(KEY_SELECTED_NAV, id).apply();
                     return true;
                 } else {
                     return false;

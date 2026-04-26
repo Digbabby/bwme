@@ -2,6 +2,7 @@ package com.example.bwme;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationManager;
@@ -12,12 +13,10 @@ import android.preference.PreferenceManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
@@ -39,18 +38,17 @@ import org.osmdroid.views.overlay.Marker;
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider;
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MapFragment extends Fragment {
 
     private LocationAdapter adapter;
-    private Location lastLocation;
     private MapView map;
     private FusedLocationProviderClient fusedClient;
     private LocationCallback locationCallback;
@@ -61,7 +59,6 @@ public class MapFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        // 1. IMPORTANT: Load configuration for osmdroid
         Configuration.getInstance().load(getContext(), PreferenceManager.getDefaultSharedPreferences(getContext()));
         Configuration.getInstance().setUserAgentValue(getContext().getPackageName());
 
@@ -72,7 +69,6 @@ public class MapFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // 3. Initialize your Map
         map = view.findViewById(R.id.map);
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
@@ -80,40 +76,29 @@ public class MapFragment extends Fragment {
 
         setupMyLocationOverlay();
 
-        // 4. Initialize Table (RecyclerView)
         RecyclerView rv = view.findViewById(R.id.recyclerView);
         rv.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new LocationAdapter(new ArrayList<>());
         rv.setAdapter(adapter);
 
-        // 5. GPS Setup
         fusedClient = LocationServices.getFusedLocationProviderClient(getContext());
         setupLocationTracking();
-
-        // 6. Buttons
-        view.findViewById(R.id.btnSave).setOnClickListener(v -> {
-            if (lastLocation != null) {
-                showCategoryDialog(lastLocation);
-            } else {
-                Toast.makeText(getContext(), "Wait for GPS...", Toast.LENGTH_SHORT).show();
-            }
-        });
 
         view.findViewById(R.id.btnDelete).setOnClickListener(v -> {
             executor.execute(() -> {
                 AppDatabase.getInstance(getContext()).visitedPlaceDao().deleteAll();
                 mainHandler.post(() -> {
                     refreshHistory();
-                    map.getOverlays().clear();
-                    map.getOverlays().add(myLocationOverlay);
-                    map.invalidate();
                 });
             });
         });
 
-        // 7. Load Data on Startup
         refreshHistory();
         requestGpsPermission();
+
+        getParentFragmentManager().setFragmentResultListener("expenses_changed", getViewLifecycleOwner(), (requestKey, result) -> {
+            refreshHistory();
+        });
     }
 
     private void setupMyLocationOverlay(){
@@ -134,55 +119,96 @@ public class MapFragment extends Fragment {
         map.getOverlays().add(myLocationOverlay);
     }
 
-    private void showCategoryDialog(Location loc) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-        builder.setTitle("Name this place");
-        final EditText input = new EditText(getContext());
-        input.setHint("e.g. Home, Cafe, Work");
-        builder.setView(input);
-
-        builder.setPositiveButton("Save", (dialog, which) -> {
-            String category = input.getText().toString();
-            saveToDb(loc, category);
-        });
-        builder.setNegativeButton("Cancel", null);
-        builder.show();
-    }
-
-    private void saveToDb(Location loc, String category) {
-        long time = System.currentTimeMillis();
-        String date = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(time));
-
-        VisitedPlace vp = new VisitedPlace(loc.getLatitude(), loc.getLongitude(), time, date, category);
-        executor.execute(() -> {
-            AppDatabase.getInstance(getContext()).visitedPlaceDao().insert(vp);
-            mainHandler.post(() -> {
-                refreshHistory();
-                Marker m = new Marker(map);
-                m.setPosition(new GeoPoint(loc.getLatitude(), loc.getLongitude()));
-                m.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-                m.setTitle(category + " (" + date + ")");
-                map.getOverlays().add(m);
-                map.invalidate();
-                Toast.makeText(getContext(), "Location Saved!", Toast.LENGTH_SHORT).show();
-            });
-        });
-    }
-
     private void refreshHistory() {
         executor.execute(() -> {
-            List<VisitedPlace> history = AppDatabase.getInstance(getContext()).visitedPlaceDao().getAllPlaces();
+            Context ctx = getContext();
+            if (ctx == null) return;
+
+            List<VisitedPlace> history = AppDatabase.getInstance(ctx).visitedPlaceDao().getAllPlaces();
+            SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
+            String json = prefs.getString("expenses_json", "[]");
+            List<Expense> expenses = new com.google.gson.Gson().fromJson(json, new com.google.gson.reflect.TypeToken<List<Expense>>(){}.getType());
+
             mainHandler.post(() -> {
+                if (!isAdded()) return;
                 adapter.updateData(history);
-                // Add markers to map
                 map.getOverlays().clear();
                 if (myLocationOverlay != null) {
                     map.getOverlays().add(myLocationOverlay);
                 }
-                for (VisitedPlace p : history) {
+
+                // Consolidated Grouping
+                Map<String, List<Object>> consolidated = new HashMap<>();
+
+                if (history != null) {
+                    for (VisitedPlace p : history) {
+                        String key = p.latitude + "," + p.longitude;
+                        if (!consolidated.containsKey(key)) consolidated.put(key, new ArrayList<>());
+                        consolidated.get(key).add(p);
+                    }
+                }
+
+                if (expenses != null) {
+                    for (Expense e : expenses) {
+                        if (e.lat != null && e.lng != null) {
+                            String key = e.lat + "," + e.lng;
+                            if (!consolidated.containsKey(key)) consolidated.put(key, new ArrayList<>());
+                            consolidated.get(key).add(e);
+                        }
+                    }
+                }
+
+                for (Map.Entry<String, List<Object>> entry : consolidated.entrySet()) {
+                    String[] coords = entry.getKey().split(",");
+                    double lat = Double.parseDouble(coords[0]);
+                    double lng = Double.parseDouble(coords[1]);
+                    List<Object> items = entry.getValue();
+
                     Marker m = new Marker(map);
-                    m.setPosition(new GeoPoint(p.latitude, p.longitude));
-                    m.setTitle(p.category + " (" + p.readableDate + ")");
+                    m.setPosition(new GeoPoint(lat, lng));
+
+                    String locationName = null;
+                    List<Expense> locExpenses = new ArrayList<>();
+                    for (Object item : items) {
+                        if (item instanceof VisitedPlace) locationName = ((VisitedPlace) item).category;
+                        else if (item instanceof Expense) locExpenses.add((Expense) item);
+                    }
+
+                    if (locExpenses.isEmpty()) {
+                        m.setTitle(locationName);
+                        m.setIcon(getResources().getDrawable(android.R.drawable.btn_star_big_on));
+                    } else if (locExpenses.size() == 1) {
+                        Expense e = locExpenses.get(0);
+                        m.setTitle((locationName != null ? locationName : e.category) + ": ₱" + String.format(Locale.getDefault(), "%.2f", e.amount));
+                        m.setSnippet(e.desc);
+
+                        int resId = android.R.drawable.ic_menu_myplaces;
+                        switch (e.category) {
+                            case "Food":
+                                resId = R.drawable.map_food_icon_158315;
+                                break;
+                            case "Transport":
+                                resId = R.drawable.bus_map_pin_icon;
+                                break;
+                            case "Entertainment":
+                                resId = R.drawable.theater_comedy_icon;
+                                break;
+                            case "Utilities":
+                                resId = R.drawable.payments_icon;
+                                break;
+                        }
+                        m.setIcon(getResources().getDrawable(resId));
+                    } else {
+                        double total = 0;
+                        StringBuilder sb = new StringBuilder();
+                        for (Expense e : locExpenses) {
+                            total += e.amount;
+                            sb.append("• ").append(e.category).append(": ₱").append(String.format(Locale.getDefault(), "%.2f", e.amount)).append(" (").append(e.desc).append(")\n");
+                        }
+                        m.setTitle((locationName != null ? locationName : "Multiple Expenses") + ": ₱" + String.format(Locale.getDefault(), "%.2f", total));
+                        m.setSnippet(sb.toString().trim());
+                        m.setIcon(getResources().getDrawable(android.R.drawable.ic_menu_agenda));
+                    }
                     map.getOverlays().add(m);
                 }
                 map.invalidate();
@@ -195,10 +221,6 @@ public class MapFragment extends Fragment {
         locationCallback = new LocationCallback() {
             @Override
             public void onLocationResult(@NonNull LocationResult result) {
-                lastLocation = result.getLastLocation();
-                if (lastLocation != null && map != null) {
-                    map.getController().animateTo(new GeoPoint(lastLocation.getLatitude(), lastLocation.getLongitude()));
-                }
             }
         };
 

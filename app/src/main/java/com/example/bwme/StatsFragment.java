@@ -1,5 +1,6 @@
 package com.example.bwme;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -83,6 +84,9 @@ public class StatsFragment extends Fragment {
         setupSpinners();
         configureCharts();
         renderForSelection();
+        
+        getParentFragmentManager().setFragmentResultListener("expenses_changed", getViewLifecycleOwner(),
+                (requestKey, result) -> renderForSelection());
     }
 
     private void setupSpinners() {
@@ -128,7 +132,7 @@ public class StatsFragment extends Fragment {
     }
 
     private void renderForSelection() {
-        if (getActivity() == null) return;
+        if (getContext() == null) return;
         final String period = (String) (periodSpinner.getSelectedItem() != null ? periodSpinner.getSelectedItem() : "Daily");
         final String groupBy = (String) (groupSpinner.getSelectedItem() != null ? groupSpinner.getSelectedItem() : "Category");
         PeriodBuckets buckets = buildBuckets(period);
@@ -221,8 +225,9 @@ public class StatsFragment extends Fragment {
 
     private AggregationResult aggregateExpenses(PeriodBuckets buckets, String groupBy, String period) {
         Map<String, double[]> series = new HashMap<>();
-        if (getActivity() == null) return new AggregationResult(series);
-        SharedPreferences prefs = requireActivity().getSharedPreferences(MainActivity.PREFS, requireActivity().MODE_PRIVATE);
+        Context context = getContext();
+        if (context == null) return new AggregationResult(series);
+        SharedPreferences prefs = MainActivity.getUserPrefs(context);
         String json = prefs.getString("expenses_json", "[]");
         if (json == null) json = "[]";
         Type listType = new TypeToken<List<Expense>>() {}.getType();

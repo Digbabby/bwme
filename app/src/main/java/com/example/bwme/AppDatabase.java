@@ -10,15 +10,26 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract VisitedPlaceDao visitedPlaceDao();
 
     private static volatile AppDatabase INSTANCE;
+    private static String CURRENT_DB_USER = "";
 
     public static AppDatabase getInstance(final Context context) {
-        if (INSTANCE == null) {
+        return getInstance(context, "");
+    }
+
+    public static AppDatabase getInstance(final Context context, String username) {
+        if (username == null) username = "";
+        if (INSTANCE == null || !CURRENT_DB_USER.equals(username)) {
             synchronized (AppDatabase.class) {
-                if (INSTANCE == null) {
+                if (INSTANCE == null || !CURRENT_DB_USER.equals(username)) {
+                    if (INSTANCE != null) {
+                        INSTANCE.close();
+                    }
+                    String dbName = "travel_tracker_" + (username.isEmpty() ? "default" : username) + ".db";
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
-                                    AppDatabase.class, "travel_tracker_db")
+                                    AppDatabase.class, dbName)
                             .fallbackToDestructiveMigration()
                             .build();
+                    CURRENT_DB_USER = username;
                 }
             }
         }
