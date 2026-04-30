@@ -17,10 +17,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
 
+import com.google.android.material.imageview.ShapeableImageView;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
+import java.io.OutputStream;
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
@@ -41,7 +44,7 @@ public class ProfileFragment extends Fragment {
     private TextView savingsTotalTv;
     private Switch darkSwitch;
     private TextView profileNameTv;
-    private ImageView profilepic;
+    private ShapeableImageView profilepic;
     private Button changebtn;
     private final Gson gson = new Gson();
     private DatabaseHelper DB;
@@ -104,16 +107,18 @@ public class ProfileFragment extends Fragment {
         String picPath = DB.getProfilePic(loggedInUser);
         String displayName = DB.getDisplayName(loggedInUser);
 
-        if (profileNameTv != null && displayName != null) {
-            profileNameTv.setText(displayName);
+        if (profileNameTv != null) {
+            profileNameTv.setText(displayName != null && !displayName.isEmpty() ? displayName : loggedInUser);
         }
 
-        if (picPath != null && !picPath.equals("default_pic")) {
+        if (picPath != null && !picPath.isEmpty() && !picPath.equals("default_pic")) {
             try {
                 profilepic.setImageURI(Uri.parse(picPath));
             } catch (Exception e) {
-                profilepic.setImageResource(R.drawable.profile_placeholder); // Fallback
+                profilepic.setImageResource(R.drawable.profile_placeholder);
             }
+        } else {
+            profilepic.setImageResource(R.drawable.profile_placeholder);
         }
     }
 
@@ -190,11 +195,18 @@ public class ProfileFragment extends Fragment {
         });
 
         resetBtn.setOnClickListener(v -> {
-            prefs.edit().putString("expenses_json", "[]").apply();
-            updateAllocatedExpensesTotal();
-            updateSavingsTotal();
-            recalcPreview();
-            Toast.makeText(requireContext(), "Expenses cleared", Toast.LENGTH_SHORT).show();
+            new AlertDialog.Builder(requireContext())
+                .setTitle("Reset All Data")
+                .setMessage("This will permanently delete all your expenses and savings. Are you sure?")
+                .setPositiveButton("Yes, Reset", (d, w) -> {
+                    prefs.edit().putString("expenses_json", "[]").apply();
+                    updateAllocatedExpensesTotal();
+                    updateSavingsTotal();
+                    recalcPreview();
+                    Toast.makeText(requireContext(), "Data cleared", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
         });
 
         logoutBtn.setOnClickListener(v -> {
@@ -226,7 +238,6 @@ public class ProfileFragment extends Fragment {
             prefs.edit().putBoolean(MainActivity.KEY_DARK, isChecked).apply();
             int mode = isChecked ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO;
             AppCompatDelegate.setDefaultNightMode(mode);
-            requireActivity().recreate();
         });
 
         getParentFragmentManager().setFragmentResultListener("expenses_changed", getViewLifecycleOwner(),
@@ -295,42 +306,44 @@ public class ProfileFragment extends Fragment {
 
         String out;
         switch (showPeriod.toLowerCase(Locale.ROOT)) {
+            case "daily":
+                out = String.format(Locale.getDefault(), "Daily: ₱ %.2f", daily);
+                break;
             case "weekly":
                 out = String.format(Locale.getDefault(), "Weekly: ₱ %.2f", weekly);
                 break;
             case "monthly":
+            default:
                 out = String.format(Locale.getDefault(), "Monthly: ₱ %.2f", monthly);
                 break;
-            case "daily":
-            default:
-                out = String.format(Locale.getDefault(), "Daily: ₱ %.2f", daily);
-                break;
         }
-
         calculatedValueTv.setText(out);
     }
 
+    private Double parseDouble(String s) {
+        try { return Double.parseDouble(s); }
+        catch (Exception e) { return null; }
+    }
+
     private int daysLeftIncludingToday() {
-        Calendar now = Calendar.getInstance();
-        int today = now.get(Calendar.DAY_OF_MONTH);
-        int maxDay = now.getActualMaximum(Calendar.DAY_OF_MONTH);
-        return Math.max(1, maxDay - today + 1);
+        Calendar c = Calendar.getInstance();
+        int today = c.get(Calendar.DAY_OF_MONTH);
+        int last = c.getActualMaximum(Calendar.DAY_OF_MONTH);
+        return (last - today) + 1;
     }
 
     private int daysLeftInWeekIncludingToday() {
-        Calendar now = Calendar.getInstance();
-        int today = now.get(Calendar.DAY_OF_WEEK);
-        int daysUntilSunday = (Calendar.SUNDAY - today);
-        if (daysUntilSunday < 0) daysUntilSunday += 7;
-        return daysUntilSunday + 1;
+        Calendar c = Calendar.getInstance();
+        int dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
+        int daysToSaturday = Calendar.SATURDAY - dayOfWeek;
+        return daysToSaturday + 1;
     }
 
-    private Double parseDouble(String s) {
-        try {
-            if (s == null || s.trim().isEmpty()) return null;
-            return Double.parseDouble(s.trim());
-        } catch (Exception ex) {
-            return null;
-        }
+    private static class SimpleTextWatcher implements android.text.TextWatcher {
+        private final Runnable onEmpty;
+        public SimpleTextWatcher(Runnable onEmpty) { this.onEmpty = onEmpty; }
+        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+        @Override public void afterTextChanged(android.text.Editable s) { onEmpty.run(); }
     }
 }

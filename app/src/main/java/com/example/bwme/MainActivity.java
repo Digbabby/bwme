@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -29,6 +28,8 @@ import com.google.gson.reflect.TypeToken;
 
 import java.lang.reflect.Type;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -42,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences.OnSharedPreferenceChangeListener prefsListener;
     private final Gson gson = new Gson();
     private DatabaseHelper DB;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private ActivityResultLauncher<String> requestNotificationPermission;
     private ActivityResultLauncher<String> pickImageLauncher;
@@ -58,27 +60,22 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         prefs = getUserPrefs(this);
-        SharedPreferences session = getSharedPreferences("UserSession", MODE_PRIVATE);
-        String loggedInUser = session.getString("username", "");
-
+        
+        // Apply dark mode once before super.onCreate to avoid extra recreations
         boolean dark = prefs.getBoolean(KEY_DARK, false);
-        AppCompatDelegate.setDefaultNightMode(dark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+        int targetMode = dark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO;
+        if (AppCompatDelegate.getDefaultNightMode() != targetMode) {
+            AppCompatDelegate.setDefaultNightMode(targetMode);
+        }
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         DB = new DatabaseHelper(this);
         NotificationUtils.createNotificationChannel(this);
 
-        Cursor cursor = DB.getExpensesByUser(loggedInUser);
-
-        if (cursor.getCount() == 0) {
-            Toast.makeText(this, "No expenses found", Toast.LENGTH_SHORT).show();
-        } else {
-            while (cursor.moveToNext()) {
-                String amount = cursor.getString(2);
-                String category = cursor.getString(3);
-            }
-        }
+        SharedPreferences session = getSharedPreferences("UserSession", MODE_PRIVATE);
+        String loggedInUser = session.getString("username", "");
 
         if (!loggedInUser.isEmpty() && DB.checkUsername(loggedInUser) && !DB.isProfileNameSet(loggedInUser)) {
             showSetupDialog(loggedInUser);
@@ -102,7 +99,6 @@ public class MainActivity extends AppCompatActivity {
                     } else {
                         Toast.makeText(this, "Profile Saved with default picture", Toast.LENGTH_SHORT).show();
                     }
-                    // After picking image (or cancelling), go to Profile
                     navigateToProfile();
                 }
         );
@@ -138,36 +134,29 @@ public class MainActivity extends AppCompatActivity {
             dlg.show(getSupportFragmentManager(), "add_expense_dialog");
         });
 
-        prefsListener = new SharedPreferences.OnSharedPreferenceChangeListener() {
-            @Override
-            public void onSharedPreferenceChanged(final SharedPreferences sharedPreferences, final String key) {
-                if ("expenses_json".equals(key)) {
-                    final String json = sharedPreferences.getString("expenses_json", "[]");
+        prefsListener = (sharedPreferences, key) -> {
+            if ("expenses_json".equals(key)) {
+                final String json = sharedPreferences.getString("expenses_json", "[]");
+                executor.execute(() -> {
                     try {
                         Type type = new TypeToken<List<Expense>>() {}.getType();
                         List<Expense> list = gson.fromJson(json, type);
-                        if (list != null) {
-                            BudgetChecker.checkAndNotify(MainActivity.this, list);
-                        }
-                    } catch (Exception ex) {
-                        Log.w(TAG, "Failed to run BudgetChecker from prefs listener", ex);
-                    }
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            int count = 0;
-                            try {
-                                Type type = new TypeToken<List<Expense>>() {}.getType();
-                                List<Expense> list = gson.fromJson(json, type);
-                                if (list != null) count = list.size();
-                            } catch (Exception e) {
+                        
+                        // Use ApplicationContext for background tasks to avoid context leaks/crashes
+                        BudgetChecker.checkAndNotify(getApplicationContext(), list);
+                        
+                        int count = list != null ? list.size() : 0;
+                        runOnUiThread(() -> {
+                            if (!isFinishing() && !isDestroyed()) {
+                                Bundle bundle = new Bundle();
+                                bundle.putInt("count", count);
+                                getSupportFragmentManager().setFragmentResult("expenses_changed", bundle);
                             }
-                            Bundle bundle = new Bundle();
-                            bundle.putInt("count", count);
-                            getSupportFragmentManager().setFragmentResult("expenses_changed", bundle);
-                        }
-                    });
-                }
+                        });
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing expense update", e);
+                    }
+                });
             }
         };
 
@@ -184,6 +173,7 @@ public class MainActivity extends AppCompatActivity {
         if (prefs != null && prefsListener != null) {
             prefs.unregisterOnSharedPreferenceChangeListener(prefsListener);
         }
+        executor.shutdown();
     }
 
     private Fragment fragmentForNav(int itemId) {
@@ -216,15 +206,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             return new java.util.ArrayList<>();
         }
-    }
-
-    private boolean isProfileIncomplete(String username) {
-        Cursor cursor = DB.getReadableDatabase().rawQuery("Select displayName from users where username = ?", new String[]{username});
-        if (cursor.moveToFirst()) {
-            String name = cursor.getString(0);
-            return name == null || name.isEmpty();
-        }
-        return true;
     }
 
     private void showSetupDialog(String username) {
