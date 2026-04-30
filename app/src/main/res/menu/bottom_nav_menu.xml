@@ -12,6 +12,12 @@
         android:icon="@android:drawable/ic_menu_agenda"/>
 
     <item
+        android:id="@+id/nav_placeholder"
+        android:title=""
+        android:icon="@android:color/transparent"
+        android:enabled="false"/>
+
+    <item
         android:id="@+id/nav_map"
         android:title="Map"
         android:icon="@android:drawable/ic_menu_mapmode"/>

@@ -19,7 +19,6 @@ import java.util.Locale;
 
 public final class BudgetChecker {
     private static final String TAG = "BudgetChecker";
-    public static final String PREFS = MainActivity.PREFS;
     private static final String KEY_BUDGET_AMOUNT = "budget_amount";
     private static final String KEY_BUDGET_PERIOD = "budget_period";
     private static final String KEY_LAST_NOTIFIED_DAILY = "last_notified_daily";
@@ -36,7 +35,8 @@ public final class BudgetChecker {
             return;
         }
         try {
-            SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            // Use the centralized helper to get the correct user-specific preferences
+            SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
             double profileBudget = readBudgetAmount(prefs);
             String profilePeriod = prefs.getString(KEY_BUDGET_PERIOD, "monthly");
             if (profileBudget <= 0.0) {

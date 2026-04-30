@@ -22,6 +22,7 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -65,6 +66,10 @@ public class HomeFragment extends Fragment {
         Context context = getContext();
         if (context == null) return;
         
+        // Capture username for user-specific database instance
+        SharedPreferences session = context.getSharedPreferences("UserSession", Context.MODE_PRIVATE);
+        final String loggedInUser = session.getString("username", "");
+
         executor.execute(() -> {
             SharedPreferences prefs = MainActivity.getUserPrefs(context);
             String json = prefs.getString("expenses_json", "[]");
@@ -79,108 +84,90 @@ public class HomeFragment extends Fragment {
                 listResult = new ArrayList<>();
             }
             final List<Expense> list = listResult;
+            
+            // Use the correct user-specific database instance
+            final List<VisitedPlace> visitedPlaces = AppDatabase.getInstance(context, loggedInUser).visitedPlaceDao().getAllPlaces();
 
-            final List<VisitedPlace> visitedPlaces = AppDatabase.getInstance(context).visitedPlaceDao().getAllPlaces();
+            // Perform heavy calculations in background
+            final String topPlacesResult = calculateTopPlacesText(list, visitedPlaces);
+            
+            long startOfToday = getStartOfToday();
+            double totalToday = 0.0;
+            double totalAll = 0.0;
+            
+            for (Expense e : list) {
+                if (e == null) continue;
+                String cat = e.category != null ? e.category.toLowerCase(Locale.ROOT) : "";
+                boolean isRecurring = ("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat) || "installments".equals(cat) || "planned expense".equals(cat));
+                
+                if (!isRecurring) {
+                    totalAll += e.amount;
+                    if (e.ts >= startOfToday) {
+                        totalToday += e.amount;
+                    }
+                }
+            }
+
+            double dailyBudget = BudgetChecker.getDailyBudgetFromPrefs(prefs);
+            double pct = (dailyBudget > 0.0) ? (totalToday / dailyBudget) * 100.0 : 0.0;
+            final int pctInt = (int) Math.round(pct);
+            final double finalTotalAll = totalAll;
 
             mainHandler.post(() -> {
                 if (!isAdded()) return;
                 adapter.setItems(list);
-
-                updateTopPlaces(list, visitedPlaces);
-
-                long startOfToday = getStartOfToday();
-                double totalToday = 0.0;
-                for (Expense e : list) {
-                    if (e == null) continue;
-                    try {
-                        if (e.ts >= startOfToday) {
-                            String cat = e.category != null ? e.category.toLowerCase(Locale.ROOT) : "";
-                            if (!("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat) || "installments".equals(cat) || "planned expense".equals(cat))) {
-                                totalToday += e.amount;
-                            }
-                        }
-                    } catch (Throwable ignored) {}
-                }
-                double totalAll = 0.0;
-                for (Expense e : list) {
-                    if (e == null) continue;
-                    try {
-                        String cat = e.category != null ? e.category.toLowerCase(Locale.ROOT) : "";
-                        if (!("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat) || "installments".equals(cat) || "planned expense".equals(cat))) {
-                            totalAll += e.amount;
-                        }
-                    } catch (Throwable ignored) {}
-                }
-                if (totalTv != null) {
-                    try {
-                        totalTv.setText(String.format(Locale.getDefault(), "Total: ₱ %.2f", totalAll));
-                    } catch (Throwable ignored) {}
-                }
-                double dailyBudget = BudgetChecker.getDailyBudgetFromPrefs(prefs);
-                double pct = 0.0;
-                if (dailyBudget > 0.0) pct = (totalToday / dailyBudget) * 100.0;
-                int pctInt = (int) Math.round(pct);
-                if (percentTv != null) {
-                    try {
-                        percentTv.setText(String.format(Locale.getDefault(), "Daily Budget Used : %d%%", pctInt));
-                    } catch (Throwable ignored) {}
-                }
+                
+                if (topPlacesTv != null) topPlacesTv.setText(topPlacesResult);
+                if (totalTv != null) totalTv.setText(String.format(Locale.getDefault(), "Total: ₱ %.2f", finalTotalAll));
+                if (percentTv != null) percentTv.setText(String.format(Locale.getDefault(), "Daily Budget Used : %d%%", pctInt));
                 if (dailyProgress != null) {
-                    try {
-                        int progress = pctInt;
-                        if (progress < 0) progress = 0;
-                        if (progress > 100) progress = 100;
-                        dailyProgress.setProgress(progress);
-                    } catch (Throwable ignored) {}
+                    int progress = Math.max(0, Math.min(100, pctInt));
+                    dailyProgress.setProgress(progress);
                 }
             });
         });
     }
 
-    private void updateTopPlaces(List<Expense> expenses, List<VisitedPlace> visitedPlaces) {
-        if (topPlacesTv == null) return;
-        
+    private String calculateTopPlacesText(List<Expense> expenses, List<VisitedPlace> visitedPlaces) {
         Map<String, Double> placeTotals = new HashMap<>();
         for (Expense e : expenses) {
             String placeName = null;
-
             if (e.lat != null && e.lng != null) {
                 placeName = findNearestPlaceName(e.lat, e.lng, visitedPlaces);
             }
-
             if ((placeName == null || placeName.isEmpty()) && e.desc != null && !e.desc.isEmpty() && !"Expense".equals(e.desc)) {
                 placeName = e.desc;
             }
-
             if (placeName == null || placeName.isEmpty()) {
                 placeName = "Other";
             }
-
             Double current = placeTotals.get(placeName);
-            if (current == null) current = 0.0;
-            placeTotals.put(placeName, current + e.amount);
+            placeTotals.put(placeName, (current != null ? current : 0.0) + e.amount);
         }
 
         List<Map.Entry<String, Double>> sortedPlaces = new ArrayList<>(placeTotals.entrySet());
-        Collections.sort(sortedPlaces, (a, b) -> b.getValue().compareTo(a.getValue()));
+        Collections.sort(sortedPlaces, new Comparator<Map.Entry<String, Double>>() {
+            @Override
+            public int compare(Map.Entry<String, Double> a, Map.Entry<String, Double> b) {
+                return b.getValue().compareTo(a.getValue());
+            }
+        });
 
         StringBuilder sb = new StringBuilder();
-        int count = Math.min(5, sortedPlaces.size());
         for (int i = 0; i < 5; i++) {
-            if (i < count) {
+            if (i < sortedPlaces.size()) {
                 Map.Entry<String, Double> entry = sortedPlaces.get(i);
                 sb.append(String.format(Locale.getDefault(), "%d. %s (₱ %.2f)\n", (i + 1), entry.getKey(), entry.getValue()));
             } else {
                 sb.append((i + 1)).append(". -\n");
             }
         }
-        topPlacesTv.setText(sb.toString().trim());
+        return sb.toString().trim();
     }
 
     private String findNearestPlaceName(double lat, double lng, List<VisitedPlace> visitedPlaces) {
         VisitedPlace nearest = null;
-        double minDistance = 0.001; // 100 meters
-        
+        double minDistance = 0.001; // Approx 100 meters
         for (VisitedPlace vp : visitedPlaces) {
             double dLat = lat - vp.latitude;
             double dLng = lng - vp.longitude;
