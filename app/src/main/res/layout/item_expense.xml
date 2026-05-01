@@ -7,38 +7,43 @@
 
     <TextView
         android:id="@+id/itemAmount"
-        android:textStyle="bold"
-        android:textSize="16sp"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/poppins"
+        android:textSize="16sp"
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/itemDesc"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/poppins" />
 
     <TextView
         android:id="@+id/itemCategory"
-        android:textSize="12sp"
-        android:textStyle="italic"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingTop="2dp"/>
+        android:fontFamily="@font/poppins"
+        android:paddingTop="2dp"
+        android:textSize="12sp"
+        android:textStyle="italic" />
 
     <TextView
         android:id="@+id/itemDate"
-        android:textSize="12sp"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/poppins"
+        android:textSize="12sp" />
 
     <TextView
         android:id="@+id/itemLocation"
-        android:textSize="12sp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:visibility="gone"
-        android:paddingTop="4dp"
         android:ellipsize="end"
-        android:maxLines="1"/>
+        android:fontFamily="@font/poppins"
+        android:maxLines="1"
+        android:paddingTop="4dp"
+        android:textSize="12sp"
+        android:visibility="gone" />
 
 </LinearLayout>

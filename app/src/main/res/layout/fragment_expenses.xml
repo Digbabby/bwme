@@ -8,25 +8,29 @@
 
     <TextView
         android:id="@+id/totalText"
-        android:text="Total: ₱ 0.00"
-        android:textSize="16sp"
-        android:layout_marginTop="8dp"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="@font/poppins_semibold"
+        android:text="Total: ₱ 0.00"
+        android:textSize="16sp" />
 
     <TextView
         android:id="@+id/percentText"
-        android:text="Used: 0%"
-        android:layout_marginTop="4dp"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:fontFamily="@font/poppins"
+        android:text="Used: 0%" />
 
     <Button
         android:id="@+id/openAddBtn"
-        android:text="Add Expense"
-        android:layout_marginTop="12dp"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:backgroundTint="#3EC2A9"
+        android:fontFamily="@font/poppins_semibold"
+        android:text="Add Expense" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/expenseRecycler"

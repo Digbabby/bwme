@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:background="?android:colorBackground"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -13,31 +14,35 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Welcome — set up your allowance"
-            android:textSize="18sp"
             android:layout_marginBottom="12dp"
-            android:textColor="?attr/bwme_onSurface"/>
+            android:fontFamily="@font/poppins_semibold"
+            android:text="Welcome — set up your allowance"
+            android:textColor="?attr/bwme_onSurface"
+            android:textSize="18sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFamily="@font/poppins"
             android:text="Allocated amount (for chosen period)"
-            android:textColor="?attr/bwme_onSurface"/>
+            android:textColor="?attr/bwme_onSurface" />
 
         <EditText
             android:id="@+id/onboardingAllocated"
-            android:hint="e.g. 4000"
-            android:inputType="numberDecimal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"/>
+            android:layout_marginBottom="12dp"
+            android:fontFamily="@font/poppins"
+            android:hint="e.g. 4000"
+            android:inputType="numberDecimal" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Allocation period"
             android:layout_marginTop="6dp"
-            android:textColor="?attr/bwme_onSurface"/>
+            android:fontFamily="@font/poppins_semibold"
+            android:text="Allocation period"
+            android:textColor="?attr/bwme_onSurface" />
 
         <Spinner
             android:id="@+id/onboardingPeriodSpinner"
@@ -49,17 +54,19 @@
             android:id="@+id/labelCalculatedAllowance"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Calculated Allowance"
             android:layout_marginTop="12dp"
+            android:fontFamily="@font/poppins_semibold"
+            android:text="Calculated Allowance"
             android:textColor="?attr/bwme_onSurface"
-            android:textStyle="bold"/>
+            android:textStyle="bold" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Calculated Period Type"
             android:layout_marginTop="6dp"
-            android:textColor="?attr/bwme_onSurface"/>
+            android:fontFamily="@font/poppins"
+            android:text="Calculated Period Type"
+            android:textColor="?attr/bwme_onSurface" />
 
         <Spinner
             android:id="@+id/onboardingCalculatedPeriodSpinner"
@@ -80,17 +87,21 @@
 
         <Button
             android:id="@+id/onboardingContinueBtn"
-            android:text="Continue"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
+            android:layout_height="wrap_content"
+            android:backgroundTint="#3EC2A9"
+            android:fontFamily="@font/poppins_semibold"
+            android:text="Continue"
+            app:cornerRadius="25dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="You can change this later in Profile."
             android:layout_marginTop="12dp"
+            android:fontFamily="@font/poppins"
+            android:text="You can change this later in Profile."
             android:textColor="?attr/bwme_onSurface"
-            android:textSize="12sp"/>
+            android:textSize="12sp" />
 
     </LinearLayout>
 </ScrollView>

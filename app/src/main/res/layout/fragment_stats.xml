@@ -21,9 +21,10 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:fontFamily="@font/poppins"
                 android:text="Period:"
-                android:textSize="14sp"
-                android:layout_marginEnd="6dp"/>
+                android:textSize="14sp" />
 
             <Spinner
                 android:id="@+id/periodSpinner"
@@ -34,10 +35,11 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Group:"
-                android:textSize="14sp"
                 android:layout_marginStart="12dp"
-                android:layout_marginEnd="6dp"/>
+                android:layout_marginEnd="6dp"
+                android:fontFamily="@font/poppins"
+                android:text="Group:"
+                android:textSize="14sp" />
 
             <Spinner
                 android:id="@+id/groupSpinner"
@@ -49,11 +51,12 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Breakdown"
-            android:textStyle="bold"
-            android:textSize="16sp"
             android:layout_marginTop="6dp"
-            android:layout_marginBottom="6dp" />
+            android:layout_marginBottom="6dp"
+            android:fontFamily="@font/poppins_semibold"
+            android:text="Breakdown"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
         <com.github.mikephil.charting.charts.PieChart
             android:id="@+id/categoryPieChart"
@@ -63,11 +66,12 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Totals"
-            android:textStyle="bold"
-            android:textSize="16sp"
             android:layout_marginTop="12dp"
-            android:layout_marginBottom="6dp" />
+            android:layout_marginBottom="6dp"
+            android:fontFamily="@font/poppins_semibold"
+            android:text="Totals"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
         <com.github.mikephil.charting.charts.BarChart
             android:id="@+id/locationBarChart"
@@ -77,11 +81,12 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Trend"
-            android:textStyle="bold"
-            android:textSize="16sp"
             android:layout_marginTop="12dp"
-            android:layout_marginBottom="6dp" />
+            android:layout_marginBottom="6dp"
+            android:fontFamily="@font/poppins_semibold"
+            android:text="Trend"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
         <com.github.mikephil.charting.charts.LineChart
             android:id="@+id/spendingLineChart"

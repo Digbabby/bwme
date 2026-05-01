@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/loginRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#FFFFFF"
     android:padding="24dp"
     tools:context="com.example.bwme.LoginActivity">
 
@@ -13,89 +13,113 @@
         android:id="@+id/loginTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginTop="205dp"
+        android:fontFamily="@font/shrikhand"
+        android:gravity="center"
+        android:letterSpacing="0.02"
         android:text="BwMe"
+        android:textColor="?android:attr/textColorPrimary"
         android:textSize="36sp"
         android:textStyle="bold"
-        android:gravity="center"
-        android:layout_marginTop="40dp"
-        android:letterSpacing="0.02"
-        android:textColor="?android:attr/textColorPrimary"
-        android:fontFamily="sans-serif-medium"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/loginSubtitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Personal budget &amp; expenses"
-        android:textSize="14sp"
+        android:fontFamily="@font/poppins_semibold"
         android:gravity="center"
-        android:layout_marginTop="8dp"
+        android:text="Personal budget &amp; expenses"
         android:textColor="?android:attr/textColorSecondary"
-        app:layout_constraintTop_toBottomOf="@id/loginTitle"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@id/loginTitle" />
 
     <EditText
         android:id="@+id/usernameEt"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:hint="Username (placeholder)"
-        android:inputType="text"
         android:layout_marginTop="36dp"
+        android:fontFamily="@font/poppins"
+        android:hint="Username "
+        android:inputType="text"
         android:padding="12dp"
-        app:layout_constraintTop_toBottomOf="@id/loginSubtitle"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@id/loginSubtitle" />
 
     <EditText
         android:id="@+id/passwordEt"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:hint="Password (placeholder)"
+        android:layout_marginTop="8dp"
+        android:fontFamily="@font/poppins"
+        android:hint="Password"
         android:inputType="textPassword"
-        android:layout_marginTop="12dp"
         android:padding="12dp"
-        app:layout_constraintTop_toBottomOf="@id/usernameEt"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@id/usernameEt" />
 
     <Button
         android:id="@+id/loginBtn"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Login"
         android:layout_marginTop="20dp"
+        android:backgroundTint="#3EC2A9"
+        android:fontFamily="@font/poppins_semibold"
         android:padding="12dp"
-        app:layout_constraintTop_toBottomOf="@id/passwordEt"
+        android:text="Login"
+        android:textColorHint="#FFFFFF"
+        app:cornerRadius="25dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@id/passwordEt" />
 
     <TextView
         android:id="@+id/loginNote"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Tap Login to continue."
-        android:textSize="12sp"
-        android:gravity="center"
-        android:textColor="?android:attr/textColorSecondary"
         android:layout_marginTop="12dp"
-        app:layout_constraintTop_toBottomOf="@id/loginBtn"
+        android:fontFamily="@font/poppins"
+        android:gravity="center"
+        android:text="Tap Login to continue."
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@id/loginBtn" />
 
     <TextView
         android:id="@+id/toRegisterTv"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="36dp"
+        android:layout_marginTop="32dp"
+        android:fontFamily="@font/poppins"
         android:text="Don't have an account? Register here"
-        android:textColor="?android:attr/colorPrimary"
+        android:textColor="#3EC0A8"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/loginBtn" />
+
+    <ImageView
+        android:id="@+id/imageView2"
+        android:layout_width="117dp"
+        android:layout_height="112dp"
+        android:layout_marginTop="70dp"
+        app:layout_constraintBottom_toTopOf="@+id/usernameEt"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.263"
+        app:srcCompat="@drawable/bwme_transparent" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

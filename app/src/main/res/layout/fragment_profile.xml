@@ -25,7 +25,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:shapeAppearanceOverlay="@style/CircleImage"
-            app:strokeColor="?attr/colorPrimary"
+            app:strokeColor="#3EC2A9"
             app:strokeWidth="2dp"
             tools:src="@tools:sample/avatars" />
 
@@ -34,10 +34,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:fontFamily="@font/poppins_semibold"
             android:text="User Name"
+            android:textColor="?attr/bwme_onSurface"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="?attr/bwme_onSurface"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/profilepic" />
@@ -47,7 +48,11 @@
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFamily="@font/poppins"
             android:text="Change Picture"
+            android:textColor="#3EC2A9"
+            android:textColorHint="#3EC2A9"
+            android:textColorLink="#3EC2A9"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/profile_name" />
@@ -56,15 +61,16 @@
             android:id="@+id/divider"
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:layout_marginTop="16dp"
             android:background="?android:attr/listDivider"
-            app:layout_constraintTop_toBottomOf="@id/changebtn" />
+            app:layout_constraintTop_toBottomOf="@id/changebtn"
+            tools:layout_editor_absoluteX="16dp" />
 
         <TextView
             android:id="@+id/labelAllocated"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:fontFamily="@font/poppins_semibold"
             android:text="Budget Allocation"
             android:textColor="?attr/bwme_onSurface"
             android:textStyle="bold"
@@ -77,6 +83,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:fontFamily="@font/poppins"
             android:hint="Enter allocated allowance"
             android:inputType="numberDecimal"
             app:layout_constraintEnd_toEndOf="parent"
@@ -88,6 +95,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:fontFamily="@font/poppins"
             android:text="Allocation Type"
             android:textColor="?attr/bwme_onSurface"
             app:layout_constraintStart_toStartOf="parent"
@@ -108,6 +116,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:fontFamily="@font/poppins"
             android:text="Calculated Allowance"
             android:textColor="?attr/bwme_onSurface"
             android:textStyle="bold"
@@ -129,6 +138,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:fontFamily="@font/poppins_semibold"
             android:textColor="?attr/bwme_onSurface"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -142,7 +152,10 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:backgroundTint="#3EC2A9"
+            android:fontFamily="@font/poppins_semibold"
             android:text="Save Budget Settings"
+            app:cornerRadius="25dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/profileAllocation" />
@@ -159,13 +172,17 @@
                 android:id="@+id/profileAllocatedExpenses"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Allocated Expenses" />
+                android:backgroundTint="#3EC2A9"
+                android:fontFamily="@font/poppins_semibold"
+                android:text="Allocated Expenses"
+                app:cornerRadius="25dp" />
 
             <TextView
                 android:id="@+id/profileAllocatedTotal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
+                android:fontFamily="@font/poppins"
                 android:text="Allocated expenses total: ₱ 0.00"
                 android:textColor="?attr/bwme_onSurface" />
 
@@ -173,12 +190,16 @@
                 android:id="@+id/profileSavings"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Savings" />
+                android:backgroundTint="#3EC2A9"
+                android:fontFamily="@font/poppins_semibold"
+                android:text="Savings"
+                app:cornerRadius="25dp" />
 
             <TextView
                 android:id="@+id/profileSavingsTotal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins"
                 android:text="Savings (monthly equiv): ₱ 0.00"
                 android:textColor="?attr/bwme_onSurface" />
         </LinearLayout>
@@ -188,6 +209,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:fontFamily="@font/poppins"
             android:text="Dark Mode"
             android:textColor="?attr/bwme_onSurface"
             app:layout_constraintStart_toStartOf="parent"
@@ -201,6 +223,7 @@
             android:layout_marginTop="16dp"
             android:text="Reset All Data"
             android:textColor="@android:color/holo_red_dark"
+            app:cornerRadius="25dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/switchDarkMode" />
@@ -211,7 +234,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"
+            android:backgroundTint="#3EC2A9"
             android:text="Logout"
+            app:cornerRadius="25dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"

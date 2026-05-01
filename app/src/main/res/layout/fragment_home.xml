@@ -14,19 +14,21 @@
 
         <TextView
             android:id="@+id/homeTotal"
-            android:text="Total spent: 0"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textStyle="bold"
-            android:textSize="18sp"/>
+            android:fontFamily="@font/poppins_semibold"
+            android:text="Total spent: 0"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/homePercent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Daily Budget Used : 0%"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="4dp" />
+            android:layout_marginBottom="4dp"
+            android:fontFamily="@font/poppins"
+            android:text="Daily Budget Used : 0%" />
 
         <ProgressBar
             android:id="@+id/homeDailyProgress"
@@ -41,27 +43,30 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Top 5 Places (Most Spent)"
-            android:textStyle="bold"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="4dp"/>
+            android:layout_marginBottom="4dp"
+            android:fontFamily="@font/poppins_semibold"
+            android:text="Top 5 Places (Most Spent)"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/topPlacesTv"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="1. -\n2. -\n3. -\n4. -\n5. -"
-            android:lineSpacingExtra="2dp"
             android:layout_marginBottom="12dp"
+            android:fontFamily="@font/poppins"
+            android:lineSpacingExtra="2dp"
             android:paddingStart="8dp"
-            android:paddingEnd="8dp"/>
+            android:paddingEnd="8dp"
+            android:text="1. -\n2. -\n3. -\n4. -\n5. -" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
+            android:fontFamily="@font/poppins_semibold"
             android:text="Recent Expenses"
-            android:textStyle="bold"
-            android:layout_marginBottom="4dp"/>
+            android:textStyle="bold" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/homeRecycler"
