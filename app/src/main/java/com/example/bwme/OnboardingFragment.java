@@ -34,11 +34,11 @@ public class OnboardingFragment extends Fragment {
         calculatedValueTv = view.findViewById(R.id.onboardingCalculatedValue);
         continueBtn = view.findViewById(R.id.onboardingContinueBtn);
         String[] options = new String[] {"Daily", "Weekly", "Monthly"};
-        ArrayAdapter<String> periodAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, options);
-        periodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> periodAdapter = new ArrayAdapter<>(requireContext(), R.layout.custom_spinner_item, options);
+        periodAdapter.setDropDownViewResource(R.layout.custom_spinner_item);
         periodSpinner.setAdapter(periodAdapter);
-        ArrayAdapter<String> calcAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, options);
-        calcAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> calcAdapter = new ArrayAdapter<>(requireContext(), R.layout.custom_spinner_item, options);
+        calcAdapter.setDropDownViewResource(R.layout.custom_spinner_item);
         calculatedPeriodSpinner.setAdapter(calcAdapter);
         periodSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View v, int pos, long id) { recalcPreview(); }
@@ -147,5 +147,13 @@ public class OnboardingFragment extends Fragment {
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    private static class SimpleTextWatcher implements android.text.TextWatcher {
+        private final Runnable onEmpty;
+        public SimpleTextWatcher(Runnable onEmpty) { this.onEmpty = onEmpty; }
+        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+        @Override public void afterTextChanged(android.text.Editable s) { onEmpty.run(); }
     }
 }

@@ -91,12 +91,12 @@ public class StatsFragment extends Fragment {
 
     private void setupSpinners() {
         String[] periods = new String[] {"Daily", "Weekly", "Monthly"};
-        ArrayAdapter<String> periodAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, periods);
-        periodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> periodAdapter = new ArrayAdapter<>(requireContext(), R.layout.custom_spinner_item, periods);
+        periodAdapter.setDropDownViewResource(R.layout.custom_spinner_item);
         periodSpinner.setAdapter(periodAdapter);
         String[] groups = new String[] {"Category", "Location"};
-        ArrayAdapter<String> groupAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, groups);
-        groupAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> groupAdapter = new ArrayAdapter<>(requireContext(), R.layout.custom_spinner_item, groups);
+        groupAdapter.setDropDownViewResource(R.layout.custom_spinner_item);
         groupSpinner.setAdapter(groupAdapter);
         AdapterView.OnItemSelectedListener listener = new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) { renderForSelection(); }

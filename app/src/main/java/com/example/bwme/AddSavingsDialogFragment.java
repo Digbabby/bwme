@@ -46,8 +46,8 @@ public class AddSavingsDialogFragment extends DialogFragment {
 
         periodSpinner = new Spinner(ctx);
         String[] cats = new String[] {"Daily", "Weekly", "Monthly"};
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, android.R.layout.simple_spinner_item, cats);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, R.layout.custom_spinner_item, cats);
+        adapter.setDropDownViewResource(R.layout.custom_spinner_item);
         periodSpinner.setAdapter(adapter);
         periodSpinner.setSelection(2);
         layout.addView(periodSpinner, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));

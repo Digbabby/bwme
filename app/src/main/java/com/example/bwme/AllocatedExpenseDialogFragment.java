@@ -104,8 +104,8 @@ public class AllocatedExpenseDialogFragment extends DialogFragment {
 
         categorySpinner = new Spinner(ctx);
         String[] categories = new String[] {"bills", "rent", "gas", "installments", "planned expense"};
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, android.R.layout.simple_spinner_item, categories);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, R.layout.custom_spinner_item, categories);
+        adapter.setDropDownViewResource(R.layout.custom_spinner_item);
         categorySpinner.setAdapter(adapter);
         categorySpinner.setSelection(0);
         layout.addView(categorySpinner, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));

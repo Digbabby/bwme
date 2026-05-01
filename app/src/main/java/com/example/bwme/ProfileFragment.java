@@ -138,8 +138,8 @@ public class ProfileFragment extends Fragment {
         darkSwitch = view.findViewById(R.id.switchDarkMode);
 
         String[] options = new String[] {"Daily", "Weekly", "Monthly"};
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, options);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), R.layout.custom_spinner_item, options);
+        adapter.setDropDownViewResource(R.layout.custom_spinner_item);
         periodSpinner.setAdapter(adapter);
         calculatedPeriodSpinner.setAdapter(adapter);
 

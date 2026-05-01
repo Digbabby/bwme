@@ -95,8 +95,8 @@ public class AddExpenseDialogFragment extends DialogFragment {
 
         if (categorySpinner != null) {
             String[] categories = new String[] {"Food", "Transport", "Entertainment", "Utilities", "Other"};
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, android.R.layout.simple_spinner_item, categories);
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, R.layout.custom_spinner_item, categories);
+            adapter.setDropDownViewResource(R.layout.custom_spinner_item);
             categorySpinner.setAdapter(adapter);
             categorySpinner.setSelection(4);
         }
