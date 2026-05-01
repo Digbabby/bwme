@@ -5,9 +5,9 @@
         <item name="colorPrimaryDark">#3EC2A9</item>
         <item name="colorAccent">#3EC2A9</item>
 
-        <item name="android:colorBackground">@android:color/black</item>
-        <item name="bwme_surface">@android:color/black</item>
-        <item name="bwme_onSurface">@android:color/white</item>
+        <item name="android:colorBackground">#3c3c3c</item>
+        <item name="bwme_surface">#3c3c3c</item>
+        <item name="bwme_onSurface">#f0f0f0</item>
 
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
