@@ -12,7 +12,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -50,7 +49,7 @@ public class AllocatedExpenseDialogFragment extends DialogFragment {
     private final Gson gson = new Gson();
     private double pendingAmount = 0.0;
     private String pendingDesc = "Expense";
-    private String pendingCategory = "bills";
+    private String pendingCategory = "Bills";
     private Long pendingReminderTs = null;
     private Context appContext = null;
     private ActivityResultLauncher<String> requestLocation;
@@ -95,26 +94,30 @@ public class AllocatedExpenseDialogFragment extends DialogFragment {
         amountEt = new EditText(ctx);
         amountEt.setHint("Amount (e.g. 100)");
         amountEt.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        layout.addView(amountEt, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(amountEt, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         descEt = new EditText(ctx);
         descEt.setHint("Description");
         descEt.setInputType(InputType.TYPE_CLASS_TEXT);
-        layout.addView(descEt, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(descEt, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         categorySpinner = new Spinner(ctx);
-        String[] categories = new String[] {"bills", "rent", "gas", "installments", "planned expense"};
+        String[] categories = new String[] {"Bills", "Rent", "Gas", "Installments", "Planned Expense"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(ctx, R.layout.custom_spinner_item, categories);
         adapter.setDropDownViewResource(R.layout.custom_spinner_item);
         categorySpinner.setAdapter(adapter);
         categorySpinner.setSelection(0);
-        layout.addView(categorySpinner, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(categorySpinner, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         dateEt = new EditText(ctx);
         dateEt.setHint("Reminder date (optional)");
         dateEt.setFocusable(false);
         dateEt.setClickable(true);
-        layout.addView(dateEt, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(dateEt, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         dateEt.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -172,7 +175,7 @@ public class AllocatedExpenseDialogFragment extends DialogFragment {
                 if (categorySpinner != null && categorySpinner.getSelectedItem() != null) {
                     pendingCategory = categorySpinner.getSelectedItem().toString();
                 } else {
-                    pendingCategory = "bills";
+                    pendingCategory = "Bills";
                 }
                 pendingAmount = amt;
                 pendingDesc = desc;
@@ -212,7 +215,8 @@ public class AllocatedExpenseDialogFragment extends DialogFragment {
         final EditText coordEt = new EditText(dialogCtx);
         coordEt.setHint("Latitude, Longitude — e.g. 14.5995, 120.9842");
         coordEt.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        layout.addView(coordEt, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(coordEt, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         AlertDialog dlg = new AlertDialog.Builder(dialogCtx)
                 .setTitle("Enter coordinates")
                 .setView(layout)
@@ -304,8 +308,7 @@ public class AllocatedExpenseDialogFragment extends DialogFragment {
             }
         } catch (Exception ex) {
             Log.w(TAG, "fetchLocationAndSave exception", ex);
-            final Context fallback = appContext;
-            saveAllocatedExpense(null, fallback);
+            saveAllocatedExpense(null, appContext);
         }
     }
 
@@ -319,7 +322,7 @@ public class AllocatedExpenseDialogFragment extends DialogFragment {
             return;
         }
         try {
-            SharedPreferences prefs = ctx.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE);
+            SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
             String expJson = prefs.getString("expenses_json", "[]");
             Type type = new TypeToken<List<Expense>>() {}.getType();
             List<Expense> list;
@@ -344,7 +347,11 @@ public class AllocatedExpenseDialogFragment extends DialogFragment {
             new Handler(Looper.getMainLooper()).post(new Runnable() {
                 @Override
                 public void run() {
-                    try { Toast.makeText(toastCtx, "Saved allocated expense (#" + savedCount + ")", Toast.LENGTH_LONG).show(); } catch (Throwable t) { Log.w(TAG, "Could not show toast", t); }
+                    try {
+                        Toast.makeText(toastCtx, "Saved allocated expense (#" + savedCount + ")", Toast.LENGTH_LONG).show();
+                    } catch (Throwable t) {
+                        Log.w(TAG, "Could not show toast", t);
+                    }
                 }
             });
             if (isAdded()) {
@@ -359,15 +366,19 @@ public class AllocatedExpenseDialogFragment extends DialogFragment {
             new Handler(Looper.getMainLooper()).post(new Runnable() {
                 @Override
                 public void run() {
-                    try { Toast.makeText(toastCtx, "Could not save expense: " + ex.getMessage(), Toast.LENGTH_LONG).show(); } catch (Throwable t) { Log.w(TAG, "Could not show failure toast", t); }
+                    try {
+                        Toast.makeText(toastCtx, "Could not save expense: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                    } catch (Throwable t) {
+                        Log.w(TAG, "Could not show failure toast", t);
+                    }
                 }
             });
         } finally {
             pendingAmount = 0.0;
             pendingDesc = "Expense";
-            pendingCategory = "bills";
+            pendingCategory = "Bills";
             pendingReminderTs = null;
-            dateEt.setText("");
+            if (dateEt != null) dateEt.setText("");
         }
     }
 }

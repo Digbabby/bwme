@@ -83,7 +83,7 @@ public class AddSavingsDialogFragment extends DialogFragment {
                 String period = (String) (periodSpinner.getSelectedItem() != null ? periodSpinner.getSelectedItem() : "Monthly");
                 long now = System.currentTimeMillis();
                 try {
-                    SharedPreferences prefs = requireActivity().getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE);
+                    SharedPreferences prefs = MainActivity.getUserPrefs(requireContext());
                     String json = prefs.getString("savings_json", "[]");
                     if (json == null) json = "[]";
                     Type t = new TypeToken<List<Savings>>(){}.getType();

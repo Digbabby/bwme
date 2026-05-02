@@ -188,9 +188,11 @@ public final class BudgetChecker {
     public static double sumSavingsMonthly(SharedPreferences prefs) {
         if (prefs == null) return 0.0;
         double total = 0.0;
+
         try {
             String json = prefs.getString("savings_json", "[]");
             if (json == null) json = "[]";
+
             Gson g = new Gson();
             Type listType = new TypeToken<List<Savings>>() {}.getType();
             List<Savings> list;
@@ -200,30 +202,36 @@ public final class BudgetChecker {
             } catch (Exception ex) {
                 list = new java.util.ArrayList<>();
             }
+
             int daysLeftMonth = daysLeftIncludingToday();
-            int daysLeftWeek = daysLeftInWeekIncludingToday();
+            int weekFactor = getWeekFactorByDay();
+
             for (Savings s : list) {
                 if (s == null) continue;
                 try {
                     String p = s.period != null ? s.period.toLowerCase(Locale.ROOT) : "monthly";
                     double monthly = 0.0;
+
                     switch (p) {
                         case "daily":
                             monthly = s.amount * daysLeftMonth;
                             break;
                         case "weekly":
-                            double dailyFromWeekly = (daysLeftWeek > 0) ? (s.amount / (double) daysLeftWeek) : (s.amount / 7.0);
-                            monthly = dailyFromWeekly * daysLeftMonth;
+                            monthly = (weekFactor > 0)
+                                    ? (s.amount / (double) weekFactor) * daysLeftMonth
+                                    : (s.amount / 7.0) * daysLeftMonth;
                             break;
                         case "monthly":
                         default:
                             monthly = s.amount;
                             break;
                     }
+
                     total += monthly;
                 } catch (Throwable ignored) {}
             }
         } catch (Exception ignored) {}
+
         return total;
     }
 
@@ -294,27 +302,34 @@ public final class BudgetChecker {
 
     private static Budgets deriveBudgets(double amount, String period) {
         int daysLeftInMonth = daysLeftIncludingToday();
-        int daysLeftInWeek = daysLeftInWeekIncludingToday();
+        if (daysLeftInMonth <= 0) daysLeftInMonth = 30;
+
+        int weekFactor = getWeekFactorByDay();
+
         double daily, weekly, monthly;
         period = (period != null) ? period.toLowerCase(Locale.ROOT) : "monthly";
+
         switch (period) {
             case "daily":
                 daily = amount;
-                weekly = daily * daysLeftInWeek;
+                weekly = daily * weekFactor;
                 monthly = daily * daysLeftInMonth;
                 break;
+
             case "weekly":
                 weekly = amount;
-                daily = (daysLeftInWeek > 0) ? (weekly / (double) daysLeftInWeek) : (weekly / 7.0);
+                daily = (weekFactor > 0) ? (weekly / (double) weekFactor) : (weekly / 7.0);
                 monthly = daily * daysLeftInMonth;
                 break;
+
             case "monthly":
             default:
                 monthly = amount;
                 daily = (daysLeftInMonth > 0) ? (monthly / (double) daysLeftInMonth) : (monthly / 30.0);
-                weekly = daily * daysLeftInWeek;
+                weekly = daily * weekFactor;
                 break;
         }
+
         return new Budgets(daily, weekly, monthly);
     }
 
@@ -329,8 +344,7 @@ public final class BudgetChecker {
 
     private static long getStartOfThisWeek() {
         Calendar c = Calendar.getInstance();
-        int first = c.getFirstDayOfWeek();
-        while (c.get(Calendar.DAY_OF_WEEK) != first) {
+        while (c.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY) {
             c.add(Calendar.DAY_OF_MONTH, -1);
         }
         c.set(Calendar.HOUR_OF_DAY, 0);
@@ -357,14 +371,6 @@ public final class BudgetChecker {
         return Math.max(1, maxDay - today + 1);
     }
 
-    private static int daysLeftInWeekIncludingToday() {
-        Calendar now = Calendar.getInstance();
-        int today = now.get(Calendar.DAY_OF_WEEK);
-        int daysUntilSunday = (Calendar.SUNDAY - today);
-        if (daysUntilSunday < 0) daysUntilSunday += 7;
-        return daysUntilSunday + 1;
-    }
-
     private static boolean maybeSendNotification(Context ctx, String title, String text, int notifId) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -387,5 +393,15 @@ public final class BudgetChecker {
     private static class Budgets {
         final double daily, weekly, monthly;
         Budgets(double d, double w, double m) { daily = d; weekly = w; monthly = m; }
+    }
+
+    private static int getWeekFactorByDay() {
+        Calendar c = Calendar.getInstance();
+        int dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
+
+        int daysUntilSunday = Calendar.SUNDAY - dayOfWeek;
+        if (daysUntilSunday < 0) daysUntilSunday += 7;
+
+        return daysUntilSunday + 1;
     }
 }

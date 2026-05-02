@@ -6,28 +6,33 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
+
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.*;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.Switch;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.material.imageview.ShapeableImageView;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 
-import java.io.OutputStream;
-import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
-import java.util.ArrayList;
 
 public class ProfileFragment extends Fragment {
 
@@ -50,15 +55,15 @@ public class ProfileFragment extends Fragment {
     private DatabaseHelper DB;
     private String loggedInUser;
     private String userPrefsName;
-
     private ActivityResultLauncher<Intent> imagePickerLauncher;
+    private boolean suppressAutoSave = true;
 
     public ProfileFragment() {
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState){
+                             Bundle savedInstanceState) {
 
         View view = inflater.inflate(R.layout.fragment_profile, container, false);
 
@@ -80,9 +85,12 @@ public class ProfileFragment extends Fragment {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
                             try {
-                                requireContext().getContentResolver().takePersistableUriPermission(imageUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                requireContext().getContentResolver().takePersistableUriPermission(
+                                        imageUri,
+                                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                );
                             } catch (SecurityException ignored) {}
-                            
+
                             String displayName = DB.getDisplayName(loggedInUser);
                             DB.updateProfile(loggedInUser, displayName, imageUri.toString());
                             profilepic.setImageURI(imageUri);
@@ -123,7 +131,7 @@ public class ProfileFragment extends Fragment {
     }
 
     @Override
-    public void onViewCreated(View view, Bundle savedInstanceState){
+    public void onViewCreated(View view, Bundle savedInstanceState) {
         allocatedEt = view.findViewById(R.id.profileMonthly);
         periodSpinner = view.findViewById(R.id.profilePeriodSpinner);
         calculatedPeriodSpinner = view.findViewById(R.id.profileCalculatedPeriodSpinner);
@@ -151,62 +159,77 @@ public class ProfileFragment extends Fragment {
         String savedPeriod = prefs.getString("period", "Daily");
         int pos = 0;
         for (int i = 0; i < options.length; i++) {
-            if (options[i].equals(savedPeriod)) { pos = i; break; }
+            if (options[i].equals(savedPeriod)) {
+                pos = i;
+                break;
+            }
         }
         periodSpinner.setSelection(pos);
-
         calculatedPeriodSpinner.setSelection(0);
 
         periodSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(AdapterView<?> parent, View v, int position, long id) { recalcPreview(); }
-            @Override public void onNothingSelected(AdapterView<?> parent) { }
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View v, int position, long id) {
+                recalcPreview();
+                saveBudgetSettings(false);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) { }
         });
 
         calculatedPeriodSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(AdapterView<?> parent, View v, int position, long id) { recalcPreview(); }
-            @Override public void onNothingSelected(AdapterView<?> parent) { }
-        });
-
-        allocatedEt.setOnFocusChangeListener((v, hasFocus) -> { if (!hasFocus) recalcPreview(); });
-        allocatedEt.addTextChangedListener(new SimpleTextWatcher(() -> recalcPreview()));
-
-        saveBtn.setOnClickListener(v -> {
-            Double allocated = parseDouble(allocatedEt.getText().toString());
-            if (allocated == null || allocated <= 0.0) {
-                Toast.makeText(requireContext(), "Enter a valid allocated allowance (>0).", Toast.LENGTH_SHORT).show();
-                return;
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View v, int position, long id) {
+                recalcPreview();
             }
-            String period = (String) periodSpinner.getSelectedItem();
-            SharedPreferences.Editor e = prefs.edit();
-            e.putString("allocation_allocated", allocated.toString());
-            e.putString("period", period);
-            e.putString("allocation", allocated.toString());
-            e.putString("budget_amount", allocated.toString());
-            e.putString("budget_period", period);
-            e.apply();
-            recalcPreview();
-            Toast.makeText(requireContext(), "Saved allocation for " + period, Toast.LENGTH_SHORT).show();
-            try {
-                if (requireActivity() instanceof MainActivity) {
-                    java.util.List<Expense> list = ((MainActivity) requireActivity()).getExpensesFromPrefs();
-                    BudgetChecker.checkAndNotify(requireContext(), list);
-                }
-            } catch (Exception ignored) {}
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) { }
         });
+
+        allocatedEt.setOnFocusChangeListener((v, hasFocus) -> {
+            if (!hasFocus) {
+                recalcPreview();
+                saveBudgetSettings(false);
+            }
+        });
+
+        allocatedEt.addTextChangedListener(new SimpleTextWatcher(() -> {
+            recalcPreview();
+            saveBudgetSettings(false);
+        }));
+
+        saveBtn.setOnClickListener(v -> saveBudgetSettings(true));
+        saveBtn.setVisibility(View.GONE);
 
         resetBtn.setOnClickListener(v -> {
             new AlertDialog.Builder(requireContext())
-                .setTitle("Reset All Data")
-                .setMessage("This will permanently delete all your expenses and savings. Are you sure?")
-                .setPositiveButton("Yes, Reset", (d, w) -> {
-                    prefs.edit().putString("expenses_json", "[]").apply();
-                    updateAllocatedExpensesTotal();
-                    updateSavingsTotal();
-                    recalcPreview();
-                    Toast.makeText(requireContext(), "Data cleared", Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+                    .setTitle("Reset All Data")
+                    .setMessage("This will permanently delete all your expenses and savings. Are you sure?")
+                    .setPositiveButton("Yes, Reset", (d, w) -> {
+                        SharedPreferences resetPrefs = requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE);
+                        resetPrefs.edit()
+                                .putString("expenses_json", "[]")
+                                .putString("savings_json", "[]")
+                                .remove("allocation_allocated")
+                                .remove("allocation")
+                                .remove("budget_amount")
+                                .remove("budget_period")
+                                .remove("period")
+                                .apply();
+
+                        if (allocatedEt != null) allocatedEt.setText("");
+                        if (periodSpinner != null) periodSpinner.setSelection(0);
+                        if (calculatedPeriodSpinner != null) calculatedPeriodSpinner.setSelection(0);
+
+                        updateAllocatedExpensesTotal();
+                        updateSavingsTotal();
+                        recalcPreview();
+                        Toast.makeText(requireContext(), "Data cleared", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
         });
 
         logoutBtn.setOnClickListener(v -> {
@@ -250,74 +273,154 @@ public class ProfileFragment extends Fragment {
         updateAllocatedExpensesTotal();
         updateSavingsTotal();
         recalcPreview();
+
+        suppressAutoSave = false;
+    }
+
+    private void saveBudgetSettings(boolean showToast) {
+        if (suppressAutoSave) return;
+        if (allocatedEt == null || periodSpinner == null) return;
+
+        Double allocated = parseDouble(allocatedEt.getText().toString().trim());
+        if (allocated == null || allocated <= 0.0) {
+            return;
+        }
+
+        SharedPreferences prefs = requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE);
+        String period = (String) (periodSpinner.getSelectedItem() != null ? periodSpinner.getSelectedItem() : "Daily");
+
+        prefs.edit()
+                .putString("allocation_allocated", allocated.toString())
+                .putString("period", period)
+                .putString("allocation", allocated.toString())
+                .putString("budget_amount", allocated.toString())
+                .putString("budget_period", period)
+                .apply();
+
+        recalcPreview();
+
+        if (showToast) {
+            Toast.makeText(requireContext(), "Budget saved", Toast.LENGTH_SHORT).show();
+        }
+
+        try {
+            if (requireActivity() instanceof MainActivity) {
+                List<Expense> list = ((MainActivity) requireActivity()).getExpensesFromPrefs();
+                BudgetChecker.checkAndNotify(requireContext(), list);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void updateAllocatedExpensesTotal() {
-        double total = BudgetChecker.sumAllocatedExpenses(requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE));
+        double total = BudgetChecker.sumAllocatedExpenses(
+                requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE)
+        );
         if (allocatedExpensesTotalTv != null) {
-            allocatedExpensesTotalTv.setText(String.format(Locale.getDefault(), "Allocated expenses total: ₱ %.2f", total));
+            allocatedExpensesTotalTv.setText(String.format(Locale.getDefault(),
+                    "Allocated expenses total: ₱ %.2f", total));
         }
     }
 
     private void updateSavingsTotal() {
-        double total = BudgetChecker.sumSavingsMonthly(requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE));
+        double total = BudgetChecker.sumSavingsMonthly(
+                requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE)
+        );
         if (savingsTotalTv != null) {
-            savingsTotalTv.setText(String.format(Locale.getDefault(), "Savings (monthly equiv): ₱ %.2f", total));
+            savingsTotalTv.setText(String.format(Locale.getDefault(),
+                    "Savings (monthly equiv): ₱ %.2f", total));
         }
     }
 
     private void recalcPreview() {
-        Double input = parseDouble(allocatedEt.getText().toString());
+        if (allocatedEt == null || periodSpinner == null || calculatedPeriodSpinner == null || calculatedValueTv == null) {
+            return;
+        }
+
+        Double input = parseDouble(allocatedEt.getText().toString().trim());
         if (input == null) {
             calculatedValueTv.setText("");
             return;
         }
 
-        String inputPeriod = (String) (periodSpinner.getSelectedItem() != null ? periodSpinner.getSelectedItem() : "Daily");
-        String showPeriod = (String) (calculatedPeriodSpinner.getSelectedItem() != null ? calculatedPeriodSpinner.getSelectedItem() : "Daily");
+        String allocationType = (String) (periodSpinner.getSelectedItem() != null
+                ? periodSpinner.getSelectedItem()
+                : "Daily");
 
-        int daysLeftMonth = daysLeftIncludingToday();
-        int daysLeftWeek = daysLeftInWeekIncludingToday();
-
-        double monthlyFromInput;
-        switch (inputPeriod.toLowerCase(Locale.ROOT)) {
-            case "daily":
-                monthlyFromInput = input * daysLeftMonth;
-                break;
-            case "weekly":
-                double dailyFromWeekly = (daysLeftWeek > 0) ? (input / (double) daysLeftWeek) : (input / 7.0);
-                monthlyFromInput = dailyFromWeekly * daysLeftMonth;
-                break;
-            case "monthly":
-            default:
-                monthlyFromInput = input;
-                break;
-        }
+        String calculatedType = (String) (calculatedPeriodSpinner.getSelectedItem() != null
+                ? calculatedPeriodSpinner.getSelectedItem()
+                : "Daily");
 
         SharedPreferences prefs = requireActivity().getSharedPreferences(userPrefsName, Context.MODE_PRIVATE);
         double allocatedDeduction = BudgetChecker.sumAllocatedExpenses(prefs);
         double savingsMonthly = BudgetChecker.sumSavingsMonthly(prefs);
-        double remainingMonthly = monthlyFromInput - allocatedDeduction - savingsMonthly;
-        if (remainingMonthly < 0.0) remainingMonthly = 0.0;
 
-        double daily = (daysLeftMonth > 0) ? (remainingMonthly / (double) daysLeftMonth) : (remainingMonthly / 30.0);
-        double weekly = daily * daysLeftWeek;
-        double monthly = remainingMonthly;
+        int daysLeftMonth = daysLeftIncludingToday();
+        if (daysLeftMonth <= 0) daysLeftMonth = 30;
 
-        String out;
-        switch (showPeriod.toLowerCase(Locale.ROOT)) {
+        int weekFactor = getWeekFactorByDay();
+
+        double monthlyEquivalent;
+
+        switch (allocationType.toLowerCase(Locale.ROOT)) {
             case "daily":
-                out = String.format(Locale.getDefault(), "Daily: ₱ %.2f", daily);
+                monthlyEquivalent = input * (double) daysLeftMonth;
                 break;
+
             case "weekly":
-                out = String.format(Locale.getDefault(), "Weekly: ₱ %.2f", weekly);
+                monthlyEquivalent = (input / (double) weekFactor) * (double) daysLeftMonth;
                 break;
+
             case "monthly":
             default:
-                out = String.format(Locale.getDefault(), "Monthly: ₱ %.2f", monthly);
+                monthlyEquivalent = input;
                 break;
         }
+
+        double remainingMonthly = monthlyEquivalent - allocatedDeduction - savingsMonthly;
+        if (remainingMonthly < 0.0) remainingMonthly = 0.0;
+
+        double dailyAllowance = remainingMonthly / (double) daysLeftMonth;
+        double weeklyAllowance = dailyAllowance * (double) weekFactor;
+        double monthlyAllowance = remainingMonthly;
+
+        String out;
+        switch (calculatedType.toLowerCase(Locale.ROOT)) {
+            case "daily":
+                out = String.format(Locale.getDefault(), "Daily: ₱ %.2f", dailyAllowance);
+                break;
+
+            case "weekly":
+                out = String.format(Locale.getDefault(), "Weekly: ₱ %.2f", weeklyAllowance);
+                break;
+
+            case "monthly":
+            default:
+                out = String.format(Locale.getDefault(), "Monthly: ₱ %.2f", monthlyAllowance);
+                break;
+        }
+
         calculatedValueTv.setText(out);
+    }
+
+    private int getWeekFactorByDay() {
+        Calendar c = Calendar.getInstance();
+        switch (c.get(Calendar.DAY_OF_WEEK)) {
+            case Calendar.MONDAY:
+                return 7;
+            case Calendar.TUESDAY:
+                return 6;
+            case Calendar.WEDNESDAY:
+                return 5;
+            case Calendar.THURSDAY:
+                return 4;
+            case Calendar.FRIDAY:
+                return 3;
+            case Calendar.SATURDAY:
+                return 2;
+            case Calendar.SUNDAY:
+            default:
+                return 1;
+        }
     }
 
     private Double parseDouble(String s) {
@@ -330,13 +433,6 @@ public class ProfileFragment extends Fragment {
         int today = c.get(Calendar.DAY_OF_MONTH);
         int last = c.getActualMaximum(Calendar.DAY_OF_MONTH);
         return (last - today) + 1;
-    }
-
-    private int daysLeftInWeekIncludingToday() {
-        Calendar c = Calendar.getInstance();
-        int dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
-        int daysToSaturday = Calendar.SATURDAY - dayOfWeek;
-        return daysToSaturday + 1;
     }
 
     private static class SimpleTextWatcher implements android.text.TextWatcher {
