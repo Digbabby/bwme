@@ -8,6 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -51,6 +52,44 @@ public class ExpensesFragment extends Fragment {
         addBtn = view.findViewById(R.id.openAddBtn);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new ExpenseAdapter(new ArrayList<Expense>());
+        adapter.setOnExpenseDeleteListener(new ExpenseAdapter.OnExpenseDeleteListener() {
+            @Override
+            public void onDelete(Expense expense) {
+                new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                        .setTitle("Delete Expense")
+                        .setMessage("Are you sure you want to remove this expense record?")
+                        .setPositiveButton("Delete", (dialog, which) -> {
+                            // Find and remove by matching properties for robustness
+                            boolean removed = false;
+                            for (int i = 0; i < expenses.size(); i++) {
+                                Expense e = expenses.get(i);
+                                if (e.ts == expense.ts && Math.abs(e.amount - expense.amount) < 0.01) {
+                                    expenses.remove(i);
+                                    removed = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (removed) {
+                                saveExpenses();
+                                // Delete associated visited place
+                                new Thread(() -> {
+                                    Context ctx = getContext();
+                                    if (ctx != null) {
+                                        AppDatabase.getInstance(ctx).visitedPlaceDao().deleteByTimestamp(expense.ts);
+                                    }
+                                }).start();
+                                
+                                adapter.updateItems(new ArrayList<>(expenses));
+                                updateTotals();
+                                getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle());
+                                Toast.makeText(getContext(), "Expense and location deleted", Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            }
+        });
         rv.setAdapter(adapter);
         loadState();
         updateTotals();

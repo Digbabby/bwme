@@ -14,6 +14,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -55,11 +56,52 @@ public class HomeFragment extends Fragment {
         topPlacesTv = view.findViewById(R.id.topPlacesTv);
         dailyProgress = view.findViewById(R.id.homeDailyProgress);
         adapter = new ExpenseAdapter();
+        adapter.setOnExpenseDeleteListener(this::deleteExpense);
         recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
         recycler.setAdapter(adapter);
         loadAndShowExpenses();
         getParentFragmentManager().setFragmentResultListener("expenses_changed", getViewLifecycleOwner(),
                 (requestKey, result) -> loadAndShowExpenses());
+    }
+
+    private void deleteExpense(Expense expense) {
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Delete Expense")
+                .setMessage("Are you sure you want to delete this expense record?")
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    executor.execute(() -> {
+                        Context ctx = getContext();
+                        if (ctx == null) return;
+                        SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
+                        String json = prefs.getString("expenses_json", "[]");
+                        Type type = new TypeToken<List<Expense>>(){}.getType();
+                        List<Expense> expenses = gson.fromJson(json, type);
+                        
+                        if (expenses != null) {
+                            boolean removed = false;
+                            for (int i = 0; i < expenses.size(); i++) {
+                                Expense e = expenses.get(i);
+                                if (e.ts == expense.ts && Math.abs(e.amount - expense.amount) < 0.01) {
+                                    expenses.remove(i);
+                                    removed = true;
+                                    break;
+                                }
+                            }
+                            if (removed) {
+                                // Delete associated visited place
+                                AppDatabase.getInstance(ctx).visitedPlaceDao().deleteByTimestamp(expense.ts);
+
+                                prefs.edit().putString("expenses_json", gson.toJson(expenses)).apply();
+                                mainHandler.post(() -> {
+                                    getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle());
+                                    Toast.makeText(ctx, "Expense and location deleted", Toast.LENGTH_SHORT).show();
+                                });
+                            }
+                        }
+                    });
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void loadAndShowExpenses() {

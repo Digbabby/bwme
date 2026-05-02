@@ -127,9 +127,10 @@ public class AddExpenseDialogFragment extends DialogFragment {
                     Double amt = null;
                     try { amt = Double.parseDouble(amtStr); } catch (NumberFormatException ignored) { }
                     String desc = descEt.getText().toString().trim();
-                    if (desc.isEmpty()) desc = "Expense";
+                    if (desc.isEmpty()) desc = "empty";
                     
                     String locName = locationNameEt != null ? locationNameEt.getText().toString().trim() : "";
+                    if (locName.isEmpty()) locName = "empty";
                     
                     if (categorySpinner != null && categorySpinner.getSelectedItem() != null) {
                         pendingCategory = categorySpinner.getSelectedItem().toString();

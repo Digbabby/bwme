@@ -15,7 +15,12 @@ import java.util.Locale;
 
 public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.VH> {
 
+    public interface OnExpenseDeleteListener {
+        void onDelete(Expense expense);
+    }
+
     private final List<Expense> itemsInternal;
+    private OnExpenseDeleteListener deleteListener;
     private static final SimpleDateFormat DF = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
 
     public ExpenseAdapter() {
@@ -24,6 +29,10 @@ public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.VH> {
 
     public ExpenseAdapter(List<Expense> initial) {
         this.itemsInternal = (initial != null) ? new ArrayList<>(initial) : new ArrayList<>();
+    }
+
+    public void setOnExpenseDeleteListener(OnExpenseDeleteListener listener) {
+        this.deleteListener = listener;
     }
 
     public void setItems(List<Expense> newList) {
@@ -90,6 +99,13 @@ public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.VH> {
                 holder.categoryTv.setText(cat);
             } catch (Throwable ignored) {}
         }
+        if (holder.deleteBtn != null) {
+            holder.deleteBtn.setOnClickListener(v -> {
+                if (deleteListener != null) {
+                    deleteListener.onDelete(e);
+                }
+            });
+        }
     }
 
     @Override
@@ -103,6 +119,7 @@ public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.VH> {
         public final TextView timeTv;
         public final TextView locationTv;
         public final TextView categoryTv;
+        public final View deleteBtn;
 
         public VH(View itemView) {
             super(itemView);
@@ -111,6 +128,7 @@ public class ExpenseAdapter extends RecyclerView.Adapter<ExpenseAdapter.VH> {
             timeTv = itemView.findViewById(R.id.itemDate);
             locationTv = itemView.findViewById(R.id.itemLocation);
             categoryTv = itemView.findViewById(R.id.itemCategory);
+            deleteBtn = itemView.findViewById(R.id.btnDeleteExpense);
         }
     }
 }

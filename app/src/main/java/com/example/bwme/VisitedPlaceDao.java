@@ -17,6 +17,10 @@ public interface VisitedPlaceDao {
 
     @Delete
     void delete(VisitedPlace place);
+
+    @Query("DELETE FROM visited_places WHERE timestamp = :ts")
+    void deleteByTimestamp(long ts);
+
     @Query("DELETE FROM visited_places")
     void deleteAll();
 }

@@ -3,6 +3,7 @@ package com.example.bwme;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -11,10 +12,19 @@ import java.util.Locale;
 
 public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.ViewHolder> {
 
+    public interface OnLocationDeleteListener {
+        void onDelete(VisitedPlace place);
+    }
+
     private List<VisitedPlace> locationList;
+    private OnLocationDeleteListener deleteListener;
 
     public LocationAdapter(List<VisitedPlace> locationList) {
         this.locationList = locationList;
+    }
+
+    public void setOnLocationDeleteListener(OnLocationDeleteListener listener) {
+        this.deleteListener = listener;
     }
 
     public void updateData(List<VisitedPlace> newList) {
@@ -41,6 +51,12 @@ public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.ViewHo
         String coords = String.format(Locale.getDefault(), "%.4f, %.4f",
                 currentPlace.latitude, currentPlace.longitude);
         holder.tvCoords.setText(coords);
+
+        holder.btnDelete.setOnClickListener(v -> {
+            if (deleteListener != null) {
+                deleteListener.onDelete(currentPlace);
+            }
+        });
     }
 
     @Override
@@ -50,12 +66,14 @@ public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.ViewHo
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvDate, tvCategory, tvCoords;
+        ImageButton btnDelete;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             tvDate = itemView.findViewById(R.id.tvDate);
             tvCategory = itemView.findViewById(R.id.tvCategory);
             tvCoords = itemView.findViewById(R.id.tvCoords);
+            btnDelete = itemView.findViewById(R.id.btnDeleteLocation);
         }
     }
 }

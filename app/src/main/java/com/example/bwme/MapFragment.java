@@ -40,9 +40,11 @@ import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -79,6 +81,7 @@ public class MapFragment extends Fragment {
         RecyclerView rv = view.findViewById(R.id.recyclerView);
         rv.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new LocationAdapter(new ArrayList<>());
+        adapter.setOnLocationDeleteListener(this::confirmDelete);
         rv.setAdapter(adapter);
 
         fusedClient = LocationServices.getFusedLocationProviderClient(getContext());
@@ -117,6 +120,102 @@ public class MapFragment extends Fragment {
             }
         });
         map.getOverlays().add(myLocationOverlay);
+    }
+
+    private void showDeleteDialog(List<Expense> locExpenses, List<VisitedPlace> locPlaces) {
+        List<Object> combined = new ArrayList<>();
+        Set<Long> processedTs = new HashSet<>();
+
+        if (locExpenses != null) {
+            for (Expense e : locExpenses) {
+                combined.add(e);
+                processedTs.add(e.ts);
+            }
+        }
+        if (locPlaces != null) {
+            for (VisitedPlace p : locPlaces) {
+                if (!processedTs.contains(p.timestamp)) {
+                    combined.add(p);
+                }
+            }
+        }
+
+        if (combined.isEmpty()) return;
+
+        String[] displayItems = new String[combined.size()];
+        for (int i = 0; i < combined.size(); i++) {
+            Object obj = combined.get(i);
+            if (obj instanceof Expense) {
+                Expense e = (Expense) obj;
+                displayItems[i] = "[Record] " + e.category + ": ₱" + String.format(Locale.getDefault(), "%.2f", e.amount);
+            } else if (obj instanceof VisitedPlace) {
+                VisitedPlace p = (VisitedPlace) obj;
+                displayItems[i] = "[Visit] " + (p.category != null ? p.category : "Location") + " (" + p.readableDate + ")";
+            }
+        }
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Items at this location")
+                .setItems(displayItems, (dialog, which) -> {
+                    confirmDelete(combined.get(which));
+                })
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private void confirmDelete(Object item) {
+        long timestamp;
+        String label;
+        if (item instanceof Expense) {
+            timestamp = ((Expense) item).ts;
+            label = "Expense (" + ((Expense) item).category + ")";
+        } else if (item instanceof VisitedPlace) {
+            timestamp = ((VisitedPlace) item).timestamp;
+            label = "Visit (" + (((VisitedPlace) item).category != null ? ((VisitedPlace) item).category : "Location") + ")";
+        } else return;
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Delete Record")
+                .setMessage("Delete this " + label + " and its associated map data?")
+                .setPositiveButton("Delete", (d, w) -> deleteRecord(timestamp))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void deleteRecord(long timestamp) {
+        executor.execute(() -> {
+            Context ctx = getContext();
+            if (ctx == null) return;
+
+            // 1. Delete from Room (VisitedPlace)
+            AppDatabase.getInstance(ctx).visitedPlaceDao().deleteByTimestamp(timestamp);
+
+            // 2. Delete from SharedPrefs (Expense)
+            SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
+            String json = prefs.getString("expenses_json", "[]");
+            java.lang.reflect.Type type = new com.google.gson.reflect.TypeToken<List<Expense>>(){}.getType();
+            List<Expense> expenses = new com.google.gson.Gson().fromJson(json, type);
+
+            if (expenses != null) {
+                boolean removed = false;
+                for (int i = 0; i < expenses.size(); i++) {
+                    if (expenses.get(i).ts == timestamp) {
+                        expenses.remove(i);
+                        removed = true;
+                        break;
+                    }
+                }
+                if (removed) {
+                    prefs.edit().putString("expenses_json", new com.google.gson.Gson().toJson(expenses)).apply();
+                    mainHandler.post(() -> getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle()));
+                }
+            }
+
+            mainHandler.post(() -> {
+                refreshHistory();
+                Toast.makeText(ctx, "Record deleted", Toast.LENGTH_SHORT).show();
+            });
+        });
     }
 
     private void refreshHistory() {
@@ -169,9 +268,15 @@ public class MapFragment extends Fragment {
 
                     String locationName = null;
                     List<Expense> locExpenses = new ArrayList<>();
+                    List<VisitedPlace> locPlaces = new ArrayList<>();
                     for (Object item : items) {
-                        if (item instanceof VisitedPlace) locationName = ((VisitedPlace) item).category;
-                        else if (item instanceof Expense) locExpenses.add((Expense) item);
+                        if (item instanceof VisitedPlace) {
+                            VisitedPlace p = (VisitedPlace) item;
+                            locPlaces.add(p);
+                            locationName = p.category;
+                        } else if (item instanceof Expense) {
+                            locExpenses.add((Expense) item);
+                        }
                     }
 
                     if (locExpenses.isEmpty()) {
@@ -209,6 +314,12 @@ public class MapFragment extends Fragment {
                         m.setSnippet(sb.toString().trim());
                         m.setIcon(getResources().getDrawable(android.R.drawable.ic_menu_agenda));
                     }
+
+                    m.setOnMarkerClickListener((marker, mapView) -> {
+                        showDeleteDialog(locExpenses, locPlaces);
+                        return true; // Consume the event to show our custom dialog
+                    });
+
                     map.getOverlays().add(m);
                 }
                 map.invalidate();

@@ -36,4 +36,22 @@ public class Expense {
         this.category = category != null ? category : "Other";
         this.reminderTs = reminderTs;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Expense expense = (Expense) o;
+        return Double.compare(expense.amount, amount) == 0 &&
+                ts == expense.ts &&
+                java.util.Objects.equals(desc, expense.desc) &&
+                java.util.Objects.equals(lat, expense.lat) &&
+                java.util.Objects.equals(lng, expense.lng) &&
+                java.util.Objects.equals(category, expense.category);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(amount, desc, ts, lat, lng, category);
+    }
 }
