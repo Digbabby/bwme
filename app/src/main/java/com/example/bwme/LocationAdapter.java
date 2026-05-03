@@ -5,26 +5,25 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.List;
 import java.util.Locale;
 
 public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.ViewHolder> {
 
-    public interface OnLocationDeleteListener {
+    public interface OnDeleteClickListener {
         void onDelete(VisitedPlace place);
     }
 
     private List<VisitedPlace> locationList;
-    private OnLocationDeleteListener deleteListener;
+    private final OnDeleteClickListener deleteClickListener;
 
-    public LocationAdapter(List<VisitedPlace> locationList) {
+    public LocationAdapter(List<VisitedPlace> locationList, OnDeleteClickListener deleteClickListener) {
         this.locationList = locationList;
-    }
-
-    public void setOnLocationDeleteListener(OnLocationDeleteListener listener) {
-        this.deleteListener = listener;
+        this.deleteClickListener = deleteClickListener;
     }
 
     public void updateData(List<VisitedPlace> newList) {
@@ -35,7 +34,6 @@ public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.ViewHo
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-
         View view = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_location, parent, false);
         return new ViewHolder(view);
@@ -53,15 +51,15 @@ public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.ViewHo
         holder.tvCoords.setText(coords);
 
         holder.btnDelete.setOnClickListener(v -> {
-            if (deleteListener != null) {
-                deleteListener.onDelete(currentPlace);
+            if (deleteClickListener != null) {
+                deleteClickListener.onDelete(currentPlace);
             }
         });
     }
 
     @Override
     public int getItemCount() {
-        return locationList.size();
+        return locationList != null ? locationList.size() : 0;
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -73,7 +71,7 @@ public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.ViewHo
             tvDate = itemView.findViewById(R.id.tvDate);
             tvCategory = itemView.findViewById(R.id.tvCategory);
             tvCoords = itemView.findViewById(R.id.tvCoords);
-            btnDelete = itemView.findViewById(R.id.btnDeleteLocation);
+            btnDelete = itemView.findViewById(R.id.btnDeleteLocation); // change if your XML id is different
         }
     }
 }

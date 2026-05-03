@@ -4,7 +4,6 @@ import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,6 +16,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
@@ -29,6 +29,8 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
@@ -40,11 +42,10 @@ import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -58,14 +59,28 @@ public class MapFragment extends Fragment {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    SharedPreferences session = requireContext().getSharedPreferences("UserSession", Context.MODE_PRIVATE);
-    final String loggedInUser = session.getString("username", "");
+    private String loggedInUser = "";
+    private Context appContext;
+
+    @Override
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        appContext = context.getApplicationContext();
+
+        SharedPreferences session = appContext.getSharedPreferences("UserSession", Context.MODE_PRIVATE);
+        loggedInUser = session.getString("username", "");
+    }
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        Configuration.getInstance().load(getContext(), PreferenceManager.getDefaultSharedPreferences(getContext()));
-        Configuration.getInstance().setUserAgentValue(getContext().getPackageName());
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
+
+        if (appContext != null) {
+            Configuration.getInstance().load(appContext, PreferenceManager.getDefaultSharedPreferences(appContext));
+            Configuration.getInstance().setUserAgentValue(appContext.getPackageName());
+        }
 
         return inflater.inflate(R.layout.fragment_map, container, false);
     }
@@ -82,37 +97,191 @@ public class MapFragment extends Fragment {
         setupMyLocationOverlay();
 
         RecyclerView rv = view.findViewById(R.id.recyclerView);
-        rv.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapter = new LocationAdapter(new ArrayList<>());
-        adapter.setOnLocationDeleteListener(this::confirmDelete);
+        rv.setLayoutManager(new LinearLayoutManager(requireContext()));
+        adapter = new LocationAdapter(new ArrayList<>(), this::confirmDeleteVisitedPlace);
         rv.setAdapter(adapter);
 
-        fusedClient = LocationServices.getFusedLocationProviderClient(getContext());
+        fusedClient = LocationServices.getFusedLocationProviderClient(requireContext());
         setupLocationTracking();
 
-        view.findViewById(R.id.btnDelete).setOnClickListener(v -> {
-            executor.execute(() -> {
-                AppDatabase.getInstance(requireContext(), loggedInUser).visitedPlaceDao().deleteAll();
-                mainHandler.post(() -> {
-                    refreshHistory();
-                });
-            });
-        });
+        view.findViewById(R.id.btnDelete).setOnClickListener(v -> confirmDeleteAllVisitedPlaces());
 
         refreshHistory();
         requestGpsPermission();
 
-        getParentFragmentManager().setFragmentResultListener("expenses_changed", getViewLifecycleOwner(), (requestKey, result) -> {
-            refreshHistory();
+        getParentFragmentManager().setFragmentResultListener(
+                "expenses_changed",
+                getViewLifecycleOwner(),
+                (requestKey, result) -> refreshHistory()
+        );
+    }
+
+    private void confirmDeleteVisitedPlace(@NonNull VisitedPlace place) {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Delete location?")
+                .setMessage("Delete this location record and its matching expense entry?")
+                .setPositiveButton("Delete", (d, w) -> deleteVisitedPlace(place))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void confirmDeleteAllVisitedPlaces() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Delete all locations?")
+                .setMessage("Delete all location records and their matching expense entries?")
+                .setPositiveButton("Delete all", (d, w) -> deleteAllVisitedPlaces())
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void deleteVisitedPlace(@NonNull VisitedPlace place) {
+        final Context ctx = getContext();
+        if (ctx == null) return;
+
+        executor.execute(() -> {
+            try {
+                AppDatabase.getInstance(ctx, loggedInUser)
+                        .visitedPlaceDao()
+                        .delete(place);
+
+                removeMatchingExpenseFromPrefs(ctx, place.timestamp, place.latitude, place.longitude);
+
+                mainHandler.post(() -> {
+                    if (!isAdded()) return;
+                    Toast.makeText(requireContext(), "Deleted location", Toast.LENGTH_SHORT).show();
+                    refreshHistory();
+                    getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle());
+                });
+            } catch (Throwable t) {
+                mainHandler.post(() -> {
+                    if (isAdded()) {
+                        Toast.makeText(requireContext(), "Delete failed: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
         });
     }
 
-    private void setupMyLocationOverlay(){
-        GpsMyLocationProvider provider = new GpsMyLocationProvider(getContext());
+    private void deleteAllVisitedPlaces() {
+        final Context ctx = getContext();
+        if (ctx == null) return;
+
+        executor.execute(() -> {
+            try {
+                List<VisitedPlace> places = AppDatabase.getInstance(ctx, loggedInUser)
+                        .visitedPlaceDao()
+                        .getAllPlaces();
+
+                AppDatabase.getInstance(ctx, loggedInUser)
+                        .visitedPlaceDao()
+                        .deleteAll();
+
+                if (places != null && !places.isEmpty()) {
+                    SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
+                    String json = prefs.getString("expenses_json", "[]");
+                    if (json == null) json = "[]";
+
+                    List<Expense> expenses;
+                    try {
+                        expenses = new Gson().fromJson(
+                                json,
+                                new TypeToken<List<Expense>>() {}.getType()
+                        );
+                        if (expenses == null) expenses = new ArrayList<>();
+                    } catch (Exception e) {
+                        expenses = new ArrayList<>();
+                    }
+
+                    final double EPS = 0.000001;
+                    Iterator<Expense> exIt = expenses.iterator();
+                    while (exIt.hasNext()) {
+                        Expense ex = exIt.next();
+                        if (ex == null || ex.lat == null || ex.lng == null) continue;
+
+                        boolean match = false;
+                        for (VisitedPlace p : places) {
+                            if (p == null) continue;
+                            boolean tsMatch = ex.ts == p.timestamp;
+                            boolean coordMatch = Math.abs(ex.lat - p.latitude) < EPS
+                                    && Math.abs(ex.lng - p.longitude) < EPS;
+                            if (tsMatch || coordMatch) {
+                                match = true;
+                                break;
+                            }
+                        }
+
+                        if (match) exIt.remove();
+                    }
+
+                    prefs.edit().putString("expenses_json", new Gson().toJson(expenses)).apply();
+                }
+
+                mainHandler.post(() -> {
+                    if (!isAdded()) return;
+                    Toast.makeText(requireContext(), "All locations deleted", Toast.LENGTH_SHORT).show();
+                    refreshHistory();
+                    getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle());
+                });
+            } catch (Throwable t) {
+                mainHandler.post(() -> {
+                    if (isAdded()) {
+                        Toast.makeText(requireContext(), "Delete all failed: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        });
+    }
+
+    private void removeMatchingExpenseFromPrefs(@NonNull Context ctx, long ts, double lat, double lng) {
+        SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
+        String json = prefs.getString("expenses_json", "[]");
+        if (json == null) json = "[]";
+
+        List<Expense> expenses;
+        try {
+            expenses = new Gson().fromJson(
+                    json,
+                    new TypeToken<List<Expense>>() {}.getType()
+            );
+            if (expenses == null) expenses = new ArrayList<>();
+        } catch (Exception e) {
+            expenses = new ArrayList<>();
+        }
+
+        boolean changed = false;
+        final double EPS = 0.000001;
+
+        Iterator<Expense> it = expenses.iterator();
+        while (it.hasNext()) {
+            Expense ex = it.next();
+            if (ex == null) continue;
+
+            boolean tsMatch = ex.ts == ts;
+            boolean coordMatch = ex.lat != null && ex.lng != null
+                    && Math.abs(ex.lat - lat) < EPS
+                    && Math.abs(ex.lng - lng) < EPS;
+
+            if (tsMatch || coordMatch) {
+                it.remove();
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            prefs.edit().putString("expenses_json", new Gson().toJson(expenses)).apply();
+        }
+    }
+
+    private void setupMyLocationOverlay() {
+        if (map == null || appContext == null) return;
+
+        GpsMyLocationProvider provider = new GpsMyLocationProvider(appContext);
         provider.addLocationSource(LocationManager.NETWORK_PROVIDER);
+
         myLocationOverlay = new MyLocationNewOverlay(provider, map);
         myLocationOverlay.enableMyLocation();
         myLocationOverlay.enableFollowLocation();
+
         myLocationOverlay.runOnFirstFix(() -> {
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
@@ -122,103 +291,8 @@ public class MapFragment extends Fragment {
                 });
             }
         });
+
         map.getOverlays().add(myLocationOverlay);
-    }
-
-    private void showDeleteDialog(List<Expense> locExpenses, List<VisitedPlace> locPlaces) {
-        List<Object> combined = new ArrayList<>();
-        Set<Long> processedTs = new HashSet<>();
-
-        if (locExpenses != null) {
-            for (Expense e : locExpenses) {
-                combined.add(e);
-                processedTs.add(e.ts);
-            }
-        }
-        if (locPlaces != null) {
-            for (VisitedPlace p : locPlaces) {
-                if (!processedTs.contains(p.timestamp)) {
-                    combined.add(p);
-                }
-            }
-        }
-
-        if (combined.isEmpty()) return;
-
-        String[] displayItems = new String[combined.size()];
-        for (int i = 0; i < combined.size(); i++) {
-            Object obj = combined.get(i);
-            if (obj instanceof Expense) {
-                Expense e = (Expense) obj;
-                displayItems[i] = "[Record] " + e.category + ": ₱" + String.format(Locale.getDefault(), "%.2f", e.amount);
-            } else if (obj instanceof VisitedPlace) {
-                VisitedPlace p = (VisitedPlace) obj;
-                displayItems[i] = "[Visit] " + (p.category != null ? p.category : "Location") + " (" + p.readableDate + ")";
-            }
-        }
-
-        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("Items at this location")
-                .setItems(displayItems, (dialog, which) -> {
-                    confirmDelete(combined.get(which));
-                })
-                .setNegativeButton("Close", null)
-                .show();
-    }
-
-    private void confirmDelete(Object item) {
-        long timestamp;
-        String label;
-        if (item instanceof Expense) {
-            timestamp = ((Expense) item).ts;
-            label = "Expense (" + ((Expense) item).category + ")";
-        } else if (item instanceof VisitedPlace) {
-            timestamp = ((VisitedPlace) item).timestamp;
-            label = "Visit (" + (((VisitedPlace) item).category != null ? ((VisitedPlace) item).category : "Location") + ")";
-        } else return;
-
-        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("Delete Record")
-                .setMessage("Delete this " + label + " and its associated map data?")
-                .setPositiveButton("Delete", (d, w) -> deleteRecord(timestamp))
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void deleteRecord(long timestamp) {
-        executor.execute(() -> {
-            Context ctx = getContext();
-            if (ctx == null) return;
-
-            // 1. Delete from Room (VisitedPlace)
-            AppDatabase.getInstance(ctx).visitedPlaceDao().deleteByTimestamp(timestamp);
-
-            // 2. Delete from SharedPrefs (Expense)
-            SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
-            String json = prefs.getString("expenses_json", "[]");
-            java.lang.reflect.Type type = new com.google.gson.reflect.TypeToken<List<Expense>>(){}.getType();
-            List<Expense> expenses = new com.google.gson.Gson().fromJson(json, type);
-
-            if (expenses != null) {
-                boolean removed = false;
-                for (int i = 0; i < expenses.size(); i++) {
-                    if (expenses.get(i).ts == timestamp) {
-                        expenses.remove(i);
-                        removed = true;
-                        break;
-                    }
-                }
-                if (removed) {
-                    prefs.edit().putString("expenses_json", new com.google.gson.Gson().toJson(expenses)).apply();
-                    mainHandler.post(() -> getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle()));
-                }
-            }
-
-            mainHandler.post(() -> {
-                refreshHistory();
-                Toast.makeText(ctx, "Record deleted", Toast.LENGTH_SHORT).show();
-            });
-        });
     }
 
     private void refreshHistory() {
@@ -226,33 +300,49 @@ public class MapFragment extends Fragment {
             Context ctx = getContext();
             if (ctx == null) return;
 
-            List<VisitedPlace> history = AppDatabase.getInstance(ctx, loggedInUser).visitedPlaceDao().getAllPlaces();
+            List<VisitedPlace> history = AppDatabase.getInstance(ctx, loggedInUser)
+                    .visitedPlaceDao()
+                    .getAllPlaces();
+
             SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
             String json = prefs.getString("expenses_json", "[]");
-            List<Expense> expenses = new com.google.gson.Gson().fromJson(json, new com.google.gson.reflect.TypeToken<List<Expense>>(){}.getType());
+
+            List<Expense> expenses;
+            try {
+                expenses = new Gson().fromJson(
+                        json,
+                        new TypeToken<List<Expense>>() {}.getType()
+                );
+                if (expenses == null) expenses = new ArrayList<>();
+            } catch (Exception e) {
+                expenses = new ArrayList<>();
+            }
+
+            final List<VisitedPlace> finalHistory = history;
+            final List<Expense> finalExpenses = expenses;
 
             mainHandler.post(() -> {
-                if (!isAdded()) return;
-                adapter.updateData(history);
+                if (!isAdded() || map == null) return;
+
+                adapter.updateData(finalHistory);
                 map.getOverlays().clear();
                 if (myLocationOverlay != null) {
                     map.getOverlays().add(myLocationOverlay);
                 }
 
-                // Consolidated Grouping
                 Map<String, List<Object>> consolidated = new HashMap<>();
 
-                if (history != null) {
-                    for (VisitedPlace p : history) {
+                if (finalHistory != null) {
+                    for (VisitedPlace p : finalHistory) {
                         String key = p.latitude + "," + p.longitude;
                         if (!consolidated.containsKey(key)) consolidated.put(key, new ArrayList<>());
                         consolidated.get(key).add(p);
                     }
                 }
 
-                if (expenses != null) {
-                    for (Expense e : expenses) {
-                        if (e.lat != null && e.lng != null) {
+                if (finalExpenses != null) {
+                    for (Expense e : finalExpenses) {
+                        if (e != null && e.lat != null && e.lng != null) {
                             String key = e.lat + "," + e.lng;
                             if (!consolidated.containsKey(key)) consolidated.put(key, new ArrayList<>());
                             consolidated.get(key).add(e);
@@ -271,12 +361,10 @@ public class MapFragment extends Fragment {
 
                     String locationName = null;
                     List<Expense> locExpenses = new ArrayList<>();
-                    List<VisitedPlace> locPlaces = new ArrayList<>();
+
                     for (Object item : items) {
                         if (item instanceof VisitedPlace) {
-                            VisitedPlace p = (VisitedPlace) item;
-                            locPlaces.add(p);
-                            locationName = p.category;
+                            locationName = ((VisitedPlace) item).category;
                         } else if (item instanceof Expense) {
                             locExpenses.add((Expense) item);
                         }
@@ -287,7 +375,8 @@ public class MapFragment extends Fragment {
                         m.setIcon(getResources().getDrawable(android.R.drawable.btn_star_big_on));
                     } else if (locExpenses.size() == 1) {
                         Expense e = locExpenses.get(0);
-                        m.setTitle((locationName != null ? locationName : e.category) + ": ₱" + String.format(Locale.getDefault(), "%.2f", e.amount));
+                        m.setTitle((locationName != null ? locationName : e.category) + ": ₱" +
+                                String.format(Locale.getDefault(), "%.2f", e.amount));
                         m.setSnippet(e.desc);
 
                         int resId = android.R.drawable.ic_menu_myplaces;
@@ -311,26 +400,31 @@ public class MapFragment extends Fragment {
                         StringBuilder sb = new StringBuilder();
                         for (Expense e : locExpenses) {
                             total += e.amount;
-                            sb.append("• ").append(e.category).append(": ₱").append(String.format(Locale.getDefault(), "%.2f", e.amount)).append(" (").append(e.desc).append(")\n");
+                            sb.append("• ")
+                                    .append(e.category)
+                                    .append(": ₱")
+                                    .append(String.format(Locale.getDefault(), "%.2f", e.amount))
+                                    .append(" (")
+                                    .append(e.desc)
+                                    .append(")\n");
                         }
-                        m.setTitle((locationName != null ? locationName : "Multiple Expenses") + ": ₱" + String.format(Locale.getDefault(), "%.2f", total));
+                        m.setTitle((locationName != null ? locationName : "Multiple Expenses") + ": ₱" +
+                                String.format(Locale.getDefault(), "%.2f", total));
                         m.setSnippet(sb.toString().trim());
                         m.setIcon(getResources().getDrawable(android.R.drawable.ic_menu_agenda));
                     }
 
-                    m.setOnMarkerClickListener((marker, mapView) -> {
-                        showDeleteDialog(locExpenses, locPlaces);
-                        return true; // Consume the event to show our custom dialog
-                    });
-
                     map.getOverlays().add(m);
                 }
+
                 map.invalidate();
             });
         });
     }
 
     private void setupLocationTracking() {
+        if (getContext() == null) return;
+
         LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build();
         locationCallback = new LocationCallback() {
             @Override
@@ -338,23 +432,30 @@ public class MapFragment extends Fragment {
             }
         };
 
-        if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
             fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper());
         }
     }
 
     private void requestGpsPermission() {
-        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (getContext() == null) return;
+
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
         }
     }
 
     private void startLocationUpdates() {
+        if (getContext() == null || fusedClient == null) return;
+
         LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
                 .setMinUpdateIntervalMillis(5000)
                 .build();
 
-        if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
             fusedClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
         }
     }

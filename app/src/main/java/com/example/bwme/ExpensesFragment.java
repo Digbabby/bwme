@@ -3,10 +3,11 @@ package com.example.bwme;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,7 +31,7 @@ public class ExpensesFragment extends Fragment {
     private RecyclerView rv;
     private TextView totalText;
     private TextView percentText;
-    private Button addBtn;
+    private android.widget.Button addBtn;
     private ExpenseAdapter adapter;
     private List<Expense> expenses = new ArrayList<>();
     private double allocation = 0.0;
@@ -59,7 +60,19 @@ public class ExpensesFragment extends Fragment {
                         .setTitle("Delete Expense")
                         .setMessage("Are you sure you want to remove this expense record?")
                         .setPositiveButton("Delete", (dialog, which) -> {
-                            // Find and remove by matching properties for robustness
+                            new Thread(() -> {
+                                Context ctx = getContext();
+                                if (ctx != null) {
+                                    AppDatabase.getInstance(ctx).visitedPlaceDao().deleteByTimestamp(expense.ts);
+                                }
+
+                                new Handler(Looper.getMainLooper()).post(() -> {
+                                    if (isAdded()) {
+                                        getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle());
+                                    }
+                                });
+                            }).start();
+
                             boolean removed = false;
                             for (int i = 0; i < expenses.size(); i++) {
                                 Expense e = expenses.get(i);
@@ -69,21 +82,12 @@ public class ExpensesFragment extends Fragment {
                                     break;
                                 }
                             }
-                            
+
                             if (removed) {
                                 saveExpenses();
-                                // Delete associated visited place
-                                new Thread(() -> {
-                                    Context ctx = getContext();
-                                    if (ctx != null) {
-                                        AppDatabase.getInstance(ctx).visitedPlaceDao().deleteByTimestamp(expense.ts);
-                                    }
-                                }).start();
-                                
                                 adapter.updateItems(new ArrayList<>(expenses));
                                 updateTotals();
-                                getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle());
-                                Toast.makeText(getContext(), "Expense and location deleted", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getContext(), "Expense deleted", Toast.LENGTH_SHORT).show();
                             }
                         })
                         .setNegativeButton("Cancel", null)
