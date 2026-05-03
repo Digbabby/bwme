@@ -42,7 +42,6 @@ public class LoginActivity extends AppCompatActivity {
                 } else {
                     Boolean checkUserPass = DB.checkUsernamePassword(user, pass);
                     if (checkUserPass) {
-                        // Save session
                         SharedPreferences sp = getSharedPreferences("UserSession", MODE_PRIVATE);
                         SharedPreferences.Editor editor = sp.edit();
                         editor.putString("username", user);

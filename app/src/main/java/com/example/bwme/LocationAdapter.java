@@ -71,7 +71,7 @@ public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.ViewHo
             tvDate = itemView.findViewById(R.id.tvDate);
             tvCategory = itemView.findViewById(R.id.tvCategory);
             tvCoords = itemView.findViewById(R.id.tvCoords);
-            btnDelete = itemView.findViewById(R.id.btnDeleteLocation); // change if your XML id is different
+            btnDelete = itemView.findViewById(R.id.btnDeleteLocation);
         }
     }
 }

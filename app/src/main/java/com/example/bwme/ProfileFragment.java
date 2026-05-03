@@ -299,8 +299,7 @@ public class ProfileFragment extends Fragment {
                 .apply();
 
         recalcPreview();
-        
-        // Notify HomeFragment and others that budget settings changed
+
         getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle());
 
         if (showToast) {

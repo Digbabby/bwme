@@ -35,7 +35,6 @@ public final class BudgetChecker {
             return;
         }
         try {
-            // Use the centralized helper to get the correct user-specific preferences
             SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
             double profileBudget = readBudgetAmount(prefs);
             String profilePeriod = prefs.getString(KEY_BUDGET_PERIOD, "monthly");

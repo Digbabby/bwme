@@ -60,8 +60,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         prefs = getUserPrefs(this);
-        
-        // Apply dark mode once before super.onCreate to avoid extra recreations
+
         boolean dark = prefs.getBoolean(KEY_DARK, false);
         int targetMode = dark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO;
         if (AppCompatDelegate.getDefaultNightMode() != targetMode) {
@@ -142,7 +141,6 @@ public class MainActivity extends AppCompatActivity {
                         Type type = new TypeToken<List<Expense>>() {}.getType();
                         List<Expense> list = gson.fromJson(json, type);
                         
-                        // Use ApplicationContext for background tasks to avoid context leaks/crashes
                         BudgetChecker.checkAndNotify(getApplicationContext(), list);
                         
                         int count = list != null ? list.size() : 0;
