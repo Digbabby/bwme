@@ -8,6 +8,7 @@
         <item name="android:colorBackground">#f0f0f0</item>
         <item name="bwme_surface">#f0f0f0</item>
         <item name="bwme_onSurface">#3c3c3c</item>
+        <item name="bwme_home_text_color">#000000</item>
 
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>

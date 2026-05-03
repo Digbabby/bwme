@@ -226,6 +226,7 @@ public class ProfileFragment extends Fragment {
                         updateAllocatedExpensesTotal();
                         updateSavingsTotal();
                         recalcPreview();
+                        getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle());
                         Toast.makeText(requireContext(), "Data cleared", Toast.LENGTH_SHORT).show();
                     })
                     .setNegativeButton("Cancel", null)
@@ -298,6 +299,9 @@ public class ProfileFragment extends Fragment {
                 .apply();
 
         recalcPreview();
+        
+        // Notify HomeFragment and others that budget settings changed
+        getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle());
 
         if (showToast) {
             Toast.makeText(requireContext(), "Budget saved", Toast.LENGTH_SHORT).show();

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,10 +17,12 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.github.mikephil.charting.charts.BarChart;
+import com.github.mikephil.charting.charts.Chart;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.charts.PieChart;
 import com.github.mikephil.charting.components.Legend;
 import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.BarData;
 import com.github.mikephil.charting.data.BarDataSet;
 import com.github.mikephil.charting.data.BarEntry;
@@ -106,28 +109,64 @@ public class StatsFragment extends Fragment {
         groupSpinner.setOnItemSelectedListener(listener);
     }
 
+    private int getThemeColor() {
+        TypedValue typedValue = new TypedValue();
+        if (requireContext().getTheme().resolveAttribute(R.attr.bwme_home_text_color, typedValue, true)) {
+            return typedValue.data;
+        }
+        return Color.BLACK;
+    }
+
     private void configureCharts() {
+        int textColor = getThemeColor();
+
         if (pieChart != null) {
             pieChart.getDescription().setEnabled(false);
             pieChart.setUsePercentValues(false);
             pieChart.setDrawEntryLabels(false);
+            pieChart.setNoDataTextColor(textColor);
             Legend l = pieChart.getLegend();
-            if (l != null) l.setWordWrapEnabled(true);
+            if (l != null) {
+                l.setWordWrapEnabled(true);
+                l.setTextColor(textColor);
+            }
         }
         if (barChart != null) {
             barChart.getDescription().setEnabled(false);
             barChart.setFitBars(true);
-            if (barChart.getLegend() != null) barChart.getLegend().setWordWrapEnabled(true);
+            barChart.setNoDataTextColor(textColor);
+            Legend l = barChart.getLegend();
+            if (l != null) {
+                l.setWordWrapEnabled(true);
+                l.setTextColor(textColor);
+            }
             XAxis x = barChart.getXAxis();
             x.setGranularity(1f);
             x.setPosition(XAxis.XAxisPosition.BOTTOM);
+            x.setTextColor(textColor);
+            
+            YAxis left = barChart.getAxisLeft();
+            left.setTextColor(textColor);
+            YAxis right = barChart.getAxisRight();
+            right.setTextColor(textColor);
         }
         if (lineChart != null) {
             lineChart.getDescription().setEnabled(false);
-            if (lineChart.getLegend() != null) lineChart.getLegend().setWordWrapEnabled(true);
+            lineChart.setNoDataTextColor(textColor);
+            Legend l = lineChart.getLegend();
+            if (l != null) {
+                l.setWordWrapEnabled(true);
+                l.setTextColor(textColor);
+            }
             XAxis x = lineChart.getXAxis();
             x.setGranularity(1f);
             x.setPosition(XAxis.XAxisPosition.BOTTOM);
+            x.setTextColor(textColor);
+
+            YAxis left = lineChart.getAxisLeft();
+            left.setTextColor(textColor);
+            YAxis right = lineChart.getAxisRight();
+            right.setTextColor(textColor);
         }
     }
 
@@ -282,6 +321,7 @@ public class StatsFragment extends Fragment {
     private void renderPieChart(List<SeriesTotal> sorted, Map<String, double[]> seriesMap, PeriodBuckets buckets) {
         if (pieChart == null) return;
         pieChart.clear();
+        int textColor = getThemeColor();
         List<PieEntry> entries = new ArrayList<>();
         List<Integer> colors = new ArrayList<>();
         int taken = 0;
@@ -301,6 +341,7 @@ public class StatsFragment extends Fragment {
         }
         if (entries.isEmpty()) {
             pieChart.setNoDataText("No data");
+            pieChart.setNoDataTextColor(textColor);
             pieChart.invalidate();
             return;
         }
@@ -312,6 +353,7 @@ public class StatsFragment extends Fragment {
         ds.setSliceSpace(2f);
         ds.setColors(colors);
         ds.setValueTextSize(12f);
+        ds.setValueTextColor(textColor);
         PieData pd = new PieData(ds);
         pieChart.setData(pd);
         pieChart.invalidate();
@@ -320,8 +362,10 @@ public class StatsFragment extends Fragment {
     private void renderBarChart(List<SeriesTotal> sorted) {
         if (barChart == null) return;
         barChart.clear();
+        int textColor = getThemeColor();
         if (sorted.isEmpty()) {
             barChart.setNoDataText("No data");
+            barChart.setNoDataTextColor(textColor);
             barChart.invalidate();
             return;
         }
@@ -338,6 +382,7 @@ public class StatsFragment extends Fragment {
         BarDataSet ds = new BarDataSet(entries, "");
         ds.setColors(colors);
         ds.setValueTextSize(11f);
+        ds.setValueTextColor(textColor);
         BarData bd = new BarData(ds);
         bd.setBarWidth(0.9f);
         barChart.setData(bd);
@@ -345,14 +390,20 @@ public class StatsFragment extends Fragment {
         x.setValueFormatter(new IndexAxisValueFormatter(labels));
         x.setLabelRotationAngle(-45f);
         x.setGranularity(1f);
+        x.setTextColor(textColor);
+        barChart.getAxisLeft().setTextColor(textColor);
+        barChart.getAxisRight().setTextColor(textColor);
+        barChart.getLegend().setTextColor(textColor);
         barChart.invalidate();
     }
 
     private void renderLineChart(List<SeriesTotal> sorted, PeriodBuckets buckets) {
         if (lineChart == null) return;
         lineChart.clear();
+        int textColor = getThemeColor();
         if (sorted.isEmpty()) {
             lineChart.setNoDataText("No data");
+            lineChart.setNoDataTextColor(textColor);
             lineChart.invalidate();
             return;
         }
@@ -370,6 +421,7 @@ public class StatsFragment extends Fragment {
             ds.setColor(PALETTE[s % PALETTE.length]);
             ds.setCircleColor(PALETTE[s % PALETTE.length]);
             ds.setValueTextSize(9f);
+            ds.setValueTextColor(textColor);
             sets.add(ds);
         }
         LineData ld = new LineData(sets);
@@ -378,6 +430,10 @@ public class StatsFragment extends Fragment {
         x.setValueFormatter(new IndexAxisValueFormatter(buckets.labels));
         x.setLabelRotationAngle(-40f);
         x.setGranularity(1f);
+        x.setTextColor(textColor);
+        lineChart.getAxisLeft().setTextColor(textColor);
+        lineChart.getAxisRight().setTextColor(textColor);
+        lineChart.getLegend().setTextColor(textColor);
         lineChart.invalidate();
     }
 }

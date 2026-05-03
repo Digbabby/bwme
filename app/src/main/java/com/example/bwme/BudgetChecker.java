@@ -19,8 +19,8 @@ import java.util.Locale;
 
 public final class BudgetChecker {
     private static final String TAG = "BudgetChecker";
-    private static final String KEY_BUDGET_AMOUNT = "budget_amount";
-    private static final String KEY_BUDGET_PERIOD = "budget_period";
+    public static final String KEY_BUDGET_AMOUNT = "budget_amount";
+    public static final String KEY_BUDGET_PERIOD = "budget_period";
     private static final String KEY_LAST_NOTIFIED_DAILY = "last_notified_daily";
     private static final String KEY_LAST_NOTIFIED_WEEKLY = "last_notified_weekly";
     private static final String KEY_LAST_NOTIFIED_MONTHLY = "last_notified_monthly";
@@ -146,17 +146,27 @@ public final class BudgetChecker {
     }
 
     public static double getDailyBudgetFromPrefs(SharedPreferences prefs) {
+        return getBudgetForPeriod(prefs, "daily");
+    }
+
+    public static double getBudgetForPeriod(SharedPreferences prefs, String period) {
         if (prefs == null) return 0.0;
         double amount = readBudgetAmount(prefs);
-        String period = prefs.getString(KEY_BUDGET_PERIOD, prefs.getString("period", "monthly"));
-        Budgets base = deriveBudgets(amount, period);
+        String profilePeriod = prefs.getString(KEY_BUDGET_PERIOD, prefs.getString("period", "monthly"));
+        Budgets base = deriveBudgets(amount, profilePeriod);
         double allocatedDeduction = sumAllocatedExpenses(prefs);
         double savingsMonthly = sumSavingsMonthly(prefs);
         double monthlyFromInput = base.monthly;
         double remainingMonthly = monthlyFromInput - allocatedDeduction - savingsMonthly;
         if (remainingMonthly < 0.0) remainingMonthly = 0.0;
         Budgets finalB = deriveBudgets(remainingMonthly, "monthly");
-        return finalB.daily;
+
+        String p = (period != null) ? period.toLowerCase(Locale.ROOT) : "monthly";
+        switch (p) {
+            case "daily": return finalB.daily;
+            case "weekly": return finalB.weekly;
+            default: return finalB.monthly;
+        }
     }
 
     public static double sumAllocatedExpenses(SharedPreferences prefs) {
@@ -235,7 +245,7 @@ public final class BudgetChecker {
         return total;
     }
 
-    private static double sumSinceExcludingAllocated(List<Expense> expenses, long sinceMs) {
+    public static double sumSinceExcludingAllocated(List<Expense> expenses, long sinceMs) {
         if (expenses == null) return 0.0;
         double sum = 0.0;
         for (Expense ex : expenses) {
@@ -333,7 +343,7 @@ public final class BudgetChecker {
         return new Budgets(daily, weekly, monthly);
     }
 
-    private static long getStartOfToday() {
+    public static long getStartOfToday() {
         Calendar c = Calendar.getInstance();
         c.set(Calendar.HOUR_OF_DAY, 0);
         c.set(Calendar.MINUTE, 0);
@@ -342,7 +352,7 @@ public final class BudgetChecker {
         return c.getTimeInMillis();
     }
 
-    private static long getStartOfThisWeek() {
+    public static long getStartOfThisWeek() {
         Calendar c = Calendar.getInstance();
         while (c.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY) {
             c.add(Calendar.DAY_OF_MONTH, -1);
@@ -354,7 +364,7 @@ public final class BudgetChecker {
         return c.getTimeInMillis();
     }
 
-    private static long getStartOfThisMonth() {
+    public static long getStartOfThisMonth() {
         Calendar c = Calendar.getInstance();
         c.set(Calendar.DAY_OF_MONTH, 1);
         c.set(Calendar.HOUR_OF_DAY, 0);

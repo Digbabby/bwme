@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "463656752973",
+    "project_id": "bwme-70db1",
+    "storage_bucket": "bwme-70db1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:463656752973:android:06dcb7aa7b8b1e459a8904",
+        "android_client_info": {
+          "package_name": "com.example.bwme"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDCkWmqTuO5EwdD2Uv6767wypNehNGx4sQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

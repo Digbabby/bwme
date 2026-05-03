@@ -8,12 +8,12 @@
         <item name="android:colorBackground">#0F1716</item>
         <item name="bwme_surface">#1A2624</item>
         <item name="bwme_onSurface">#D1E7E3</item>
+        <item name="bwme_home_text_color">#3EC2A9</item>
 
         <item name="android:windowBackground">?android:colorBackground</item>
 
         <item name="colorOnPrimary">#FFFFFF</item>
         <item name="colorSurface">?attr/bwme_surface</item>
         <item name="colorOnSurface">?attr/bwme_onSurface</item>
-
     </style>
 </resources>

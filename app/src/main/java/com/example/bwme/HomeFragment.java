@@ -12,6 +12,7 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -39,6 +40,7 @@ public class HomeFragment extends Fragment {
     private TextView percentTv;
     private TextView topPlacesTv;
     private ProgressBar dailyProgress;
+    private ImageButton btnRefresh;
     private final Gson gson = new Gson();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -55,10 +57,20 @@ public class HomeFragment extends Fragment {
         percentTv = view.findViewById(R.id.homePercent);
         topPlacesTv = view.findViewById(R.id.topPlacesTv);
         dailyProgress = view.findViewById(R.id.homeDailyProgress);
+        btnRefresh = view.findViewById(R.id.btnRefresh);
+
         adapter = new ExpenseAdapter();
         adapter.setOnExpenseDeleteListener(this::deleteExpense);
         recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
         recycler.setAdapter(adapter);
+
+        if (btnRefresh != null) {
+            btnRefresh.setOnClickListener(v -> {
+                loadAndShowExpenses();
+                Toast.makeText(requireContext(), "Refreshing...", Toast.LENGTH_SHORT).show();
+            });
+        }
+
         loadAndShowExpenses();
         getParentFragmentManager().setFragmentResultListener("expenses_changed", getViewLifecycleOwner(),
                 (requestKey, result) -> loadAndShowExpenses());
@@ -133,8 +145,17 @@ public class HomeFragment extends Fragment {
             // Perform heavy calculations in background
             final String topPlacesResult = calculateTopPlacesText(list, visitedPlaces);
             
-            long startOfToday = getStartOfToday();
-            double totalToday = 0.0;
+            String period = prefs.getString(BudgetChecker.KEY_BUDGET_PERIOD, "monthly");
+            long periodStartTs;
+            if ("daily".equalsIgnoreCase(period)) {
+                periodStartTs = BudgetChecker.getStartOfToday();
+            } else if ("weekly".equalsIgnoreCase(period)) {
+                periodStartTs = BudgetChecker.getStartOfThisWeek();
+            } else {
+                periodStartTs = BudgetChecker.getStartOfThisMonth();
+            }
+
+            double totalInPeriod = 0.0;
             double totalAll = 0.0;
             
             for (Expense e : list) {
@@ -144,24 +165,25 @@ public class HomeFragment extends Fragment {
                 
                 if (!isRecurring) {
                     totalAll += e.amount;
-                    if (e.ts >= startOfToday) {
-                        totalToday += e.amount;
+                    if (e.ts >= periodStartTs) {
+                        totalInPeriod += e.amount;
                     }
                 }
             }
 
-            double dailyBudget = BudgetChecker.getDailyBudgetFromPrefs(prefs);
-            double pct = (dailyBudget > 0.0) ? (totalToday / dailyBudget) * 100.0 : 0.0;
+            double budgetForPeriod = BudgetChecker.getBudgetForPeriod(prefs, period);
+            double pct = (budgetForPeriod > 0.0) ? (totalInPeriod / budgetForPeriod) * 100.0 : 0.0;
             final int pctInt = (int) Math.round(pct);
             final double finalTotalAll = totalAll;
+            final String finalPeriodLabel = period.substring(0, 1).toUpperCase() + period.substring(1).toLowerCase();
 
             mainHandler.post(() -> {
                 if (!isAdded()) return;
                 adapter.setItems(list);
                 
                 if (topPlacesTv != null) topPlacesTv.setText(topPlacesResult);
-                if (totalTv != null) totalTv.setText(String.format(Locale.getDefault(), "Total: ₱ %.2f", finalTotalAll));
-                if (percentTv != null) percentTv.setText(String.format(Locale.getDefault(), "Daily Budget Used : %d%%", pctInt));
+                if (totalTv != null) totalTv.setText(String.format(Locale.getDefault(), "Total spent: ₱ %.2f", finalTotalAll));
+                if (percentTv != null) percentTv.setText(String.format(Locale.getDefault(), "%s Budget Used : %d%%", finalPeriodLabel, pctInt));
                 if (dailyProgress != null) {
                     int progress = Math.max(0, Math.min(100, pctInt));
                     dailyProgress.setProgress(progress);
@@ -220,15 +242,6 @@ public class HomeFragment extends Fragment {
             }
         }
         return (nearest != null) ? nearest.category : null;
-    }
-
-    private long getStartOfToday() {
-        Calendar c = Calendar.getInstance();
-        c.set(Calendar.HOUR_OF_DAY, 0);
-        c.set(Calendar.MINUTE, 0);
-        c.set(Calendar.SECOND, 0);
-        c.set(Calendar.MILLISECOND, 0);
-        return c.getTimeInMillis();
     }
 
     @Override

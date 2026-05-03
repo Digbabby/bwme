@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
@@ -12,14 +13,36 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <TextView
-            android:id="@+id/homeTotal"
+        <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/poppins_semibold"
-            android:text="Total spent: 0"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:id="@+id/homeTotal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:layout_toStartOf="@+id/btnRefresh"
+                android:fontFamily="@font/poppins_semibold"
+                android:text="Total spent: 0"
+                android:textColor="?attr/bwme_home_text_color"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btnRefresh"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Refresh"
+                android:padding="8dp"
+                android:scaleType="fitCenter"
+                android:src="@android:drawable/stat_notify_sync"
+                app:tint="?attr/bwme_home_text_color" />
+        </RelativeLayout>
 
         <TextView
             android:id="@+id/homePercent"
@@ -28,7 +51,8 @@
             android:layout_marginTop="8dp"
             android:layout_marginBottom="4dp"
             android:fontFamily="@font/poppins"
-            android:text="Daily Budget Used : 0%" />
+            android:text="Daily Budget Used : 0%"
+            android:textColor="?attr/bwme_home_text_color" />
 
         <ProgressBar
             android:id="@+id/homeDailyProgress"
@@ -47,6 +71,7 @@
             android:layout_marginBottom="4dp"
             android:fontFamily="@font/poppins_semibold"
             android:text="Top 5 Places (Most Spent)"
+            android:textColor="?attr/bwme_home_text_color"
             android:textStyle="bold" />
 
         <TextView
@@ -58,7 +83,8 @@
             android:lineSpacingExtra="2dp"
             android:paddingStart="8dp"
             android:paddingEnd="8dp"
-            android:text="1. -\n2. -\n3. -\n4. -\n5. -" />
+            android:text="1. -\n2. -\n3. -\n4. -\n5. -"
+            android:textColor="?attr/bwme_home_text_color" />
 
         <TextView
             android:layout_width="match_parent"
@@ -66,6 +92,7 @@
             android:layout_marginBottom="4dp"
             android:fontFamily="@font/poppins_semibold"
             android:text="Recent Expenses"
+            android:textColor="?attr/bwme_home_text_color"
             android:textStyle="bold" />
 
         <androidx.recyclerview.widget.RecyclerView

@@ -24,6 +24,7 @@
                 android:layout_marginEnd="6dp"
                 android:fontFamily="@font/poppins"
                 android:text="Period:"
+                android:textColor="?attr/bwme_home_text_color"
                 android:textSize="14sp" />
 
             <Spinner
@@ -39,6 +40,7 @@
                 android:layout_marginEnd="6dp"
                 android:fontFamily="@font/poppins"
                 android:text="Group:"
+                android:textColor="?attr/bwme_home_text_color"
                 android:textSize="14sp" />
 
             <Spinner
@@ -55,6 +57,7 @@
             android:layout_marginBottom="6dp"
             android:fontFamily="@font/poppins_semibold"
             android:text="Breakdown"
+            android:textColor="?attr/bwme_home_text_color"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -70,6 +73,7 @@
             android:layout_marginBottom="6dp"
             android:fontFamily="@font/poppins_semibold"
             android:text="Totals"
+            android:textColor="?attr/bwme_home_text_color"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -85,6 +89,7 @@
             android:layout_marginBottom="6dp"
             android:fontFamily="@font/poppins_semibold"
             android:text="Trend"
+            android:textColor="?attr/bwme_home_text_color"
             android:textSize="16sp"
             android:textStyle="bold" />
 
