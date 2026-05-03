@@ -74,18 +74,24 @@ Once launched:
 
 * Lyle Cabusora
 * GitHub: https://github.com/Digbabby
+* Added OSM API/Map functionality, and made video.
+
 
 * Joseph Anthony Baccay
 * GitHub: https://github.com/dailysally
+* Added Login page and fixed bugs. 
 
 * Ralph Christian Gellido
 * GitHub: https://github.com/RCpelago
+* Added budgeting and expense pages and made the repo.
 
 * Christian Matira
 * GitHub: https://github.com/KweQuepiepy16
+* Added graphics and visuals for the app.
 
 * Sunrain Pimentel
 * GitHub: https://github.com/Dynasia24
+* Added README.md and instruction manuals.
 
 ---
 
