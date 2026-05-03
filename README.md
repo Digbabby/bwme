@@ -85,6 +85,7 @@ Once launched:
 * GitHub: https://github.com/KweQuepiepy16
 
 * Sunrain Pimentel
+* GitHub: https://github.com/Dynasia24
 
 ---
 
