@@ -12,10 +12,8 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -40,7 +38,6 @@ public class HomeFragment extends Fragment {
     private TextView percentTv;
     private TextView topPlacesTv;
     private ProgressBar dailyProgress;
-    private ImageButton btnRefresh;
     private final Gson gson = new Gson();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -57,79 +54,31 @@ public class HomeFragment extends Fragment {
         percentTv = view.findViewById(R.id.homePercent);
         topPlacesTv = view.findViewById(R.id.topPlacesTv);
         dailyProgress = view.findViewById(R.id.homeDailyProgress);
-        btnRefresh = view.findViewById(R.id.btnRefresh);
 
         adapter = new ExpenseAdapter();
-        adapter.setOnExpenseDeleteListener(this::deleteExpense);
         recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
         recycler.setAdapter(adapter);
 
-        if (btnRefresh != null) {
-            btnRefresh.setOnClickListener(v -> {
-                loadAndShowExpenses();
-                Toast.makeText(requireContext(), "Refreshing...", Toast.LENGTH_SHORT).show();
-            });
-        }
-
         loadAndShowExpenses();
+
         getParentFragmentManager().setFragmentResultListener("expenses_changed", getViewLifecycleOwner(),
                 (requestKey, result) -> loadAndShowExpenses());
-    }
-
-    private void deleteExpense(Expense expense) {
-        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("Delete Expense")
-                .setMessage("Are you sure you want to delete this expense record?")
-                .setPositiveButton("Delete", (dialog, which) -> {
-                    executor.execute(() -> {
-                        Context ctx = getContext();
-                        if (ctx == null) return;
-                        SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
-                        String json = prefs.getString("expenses_json", "[]");
-                        Type type = new TypeToken<List<Expense>>(){}.getType();
-                        List<Expense> expenses = gson.fromJson(json, type);
-                        
-                        if (expenses != null) {
-                            boolean removed = false;
-                            for (int i = 0; i < expenses.size(); i++) {
-                                Expense e = expenses.get(i);
-                                if (e.ts == expense.ts && Math.abs(e.amount - expense.amount) < 0.01) {
-                                    expenses.remove(i);
-                                    removed = true;
-                                    break;
-                                }
-                            }
-                            if (removed) {
-                                // Delete associated visited place
-                                AppDatabase.getInstance(ctx).visitedPlaceDao().deleteByTimestamp(expense.ts);
-
-                                prefs.edit().putString("expenses_json", gson.toJson(expenses)).apply();
-                                mainHandler.post(() -> {
-                                    getParentFragmentManager().setFragmentResult("expenses_changed", new Bundle());
-                                    Toast.makeText(ctx, "Expense and location deleted", Toast.LENGTH_SHORT).show();
-                                });
-                            }
-                        }
-                    });
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
     }
 
     private void loadAndShowExpenses() {
         Context context = getContext();
         if (context == null) return;
-        
-        // Capture username for user-specific database instance
+
         SharedPreferences session = context.getSharedPreferences("UserSession", Context.MODE_PRIVATE);
         final String loggedInUser = session.getString("username", "");
 
         executor.execute(() -> {
             SharedPreferences prefs = MainActivity.getUserPrefs(context);
+
             String json = prefs.getString("expenses_json", "[]");
             if (json == null) json = "[]";
-            Type type = new TypeToken<List<Expense>>(){}.getType();
-            
+
+            Type type = new TypeToken<List<Expense>>() {}.getType();
             List<Expense> listResult;
             try {
                 listResult = gson.fromJson(json, type);
@@ -138,58 +87,72 @@ public class HomeFragment extends Fragment {
                 listResult = new ArrayList<>();
             }
             final List<Expense> list = listResult;
-            
-            // Use the correct user-specific database instance
-            final List<VisitedPlace> visitedPlaces = AppDatabase.getInstance(context, loggedInUser).visitedPlaceDao().getAllPlaces();
 
-            // Perform heavy calculations in background
+            final List<VisitedPlace> visitedPlaces =
+                    AppDatabase.getInstance(context, loggedInUser).visitedPlaceDao().getAllPlaces();
+
             final String topPlacesResult = calculateTopPlacesText(list, visitedPlaces);
-            
-            String period = prefs.getString(BudgetChecker.KEY_BUDGET_PERIOD, "monthly");
-            long periodStartTs;
-            if ("daily".equalsIgnoreCase(period)) {
-                periodStartTs = BudgetChecker.getStartOfToday();
-            } else if ("weekly".equalsIgnoreCase(period)) {
-                periodStartTs = BudgetChecker.getStartOfThisWeek();
-            } else {
-                periodStartTs = BudgetChecker.getStartOfThisMonth();
-            }
 
-            double totalInPeriod = 0.0;
+            long startOfToday = getStartOfToday();
+            double totalToday = 0.0;
             double totalAll = 0.0;
-            
+
             for (Expense e : list) {
                 if (e == null) continue;
                 String cat = e.category != null ? e.category.toLowerCase(Locale.ROOT) : "";
-                boolean isRecurring = ("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat) || "installments".equals(cat) || "planned expense".equals(cat));
-                
+                boolean isRecurring = ("bills".equals(cat) || "rent".equals(cat) || "gas".equals(cat)
+                        || "installments".equals(cat) || "planned expense".equals(cat));
+
                 if (!isRecurring) {
                     totalAll += e.amount;
-                    if (e.ts >= periodStartTs) {
-                        totalInPeriod += e.amount;
+                    if (e.ts >= startOfToday) {
+                        totalToday += e.amount;
                     }
                 }
             }
 
-            double budgetForPeriod = BudgetChecker.getBudgetForPeriod(prefs, period);
-            double pct = (budgetForPeriod > 0.0) ? (totalInPeriod / budgetForPeriod) * 100.0 : 0.0;
+            double dailyBudget = getDailyBudgetOnly(prefs);
+            double pct = (dailyBudget > 0.0) ? (totalToday / dailyBudget) * 100.0 : 0.0;
             final int pctInt = (int) Math.round(pct);
             final double finalTotalAll = totalAll;
-            final String finalPeriodLabel = period.substring(0, 1).toUpperCase() + period.substring(1).toLowerCase();
 
             mainHandler.post(() -> {
                 if (!isAdded()) return;
+
                 adapter.setItems(list);
-                
+
                 if (topPlacesTv != null) topPlacesTv.setText(topPlacesResult);
-                if (totalTv != null) totalTv.setText(String.format(Locale.getDefault(), "Total spent: ₱ %.2f", finalTotalAll));
-                if (percentTv != null) percentTv.setText(String.format(Locale.getDefault(), "%s Budget Used : %d%%", finalPeriodLabel, pctInt));
+                if (totalTv != null) totalTv.setText(String.format(Locale.getDefault(), "Total: ₱ %.2f", finalTotalAll));
+                if (percentTv != null) percentTv.setText(String.format(Locale.getDefault(), "Daily Budget Used : %d%%", pctInt));
                 if (dailyProgress != null) {
                     int progress = Math.max(0, Math.min(100, pctInt));
                     dailyProgress.setProgress(progress);
                 }
             });
         });
+    }
+
+    private double getDailyBudgetOnly(SharedPreferences prefs) {
+        if (prefs == null) return 0.0;
+
+        double amount = 0.0;
+        try {
+            String s = prefs.getString("budget_amount", "0");
+            if (s != null) amount = Double.parseDouble(s);
+        } catch (Exception ignored) {}
+
+        if (amount <= 0.0) return 0.0;
+
+        double allocatedDeduction = BudgetChecker.sumAllocatedExpenses(prefs);
+        double savingsMonthly = BudgetChecker.sumSavingsMonthly(prefs);
+
+        double remainingMonthly = amount - allocatedDeduction - savingsMonthly;
+        if (remainingMonthly < 0.0) remainingMonthly = 0.0;
+
+        int daysLeftMonth = daysLeftIncludingToday();
+        if (daysLeftMonth <= 0) daysLeftMonth = 30;
+
+        return remainingMonthly / (double) daysLeftMonth;
     }
 
     private String calculateTopPlacesText(List<Expense> expenses, List<VisitedPlace> visitedPlaces) {
@@ -231,7 +194,7 @@ public class HomeFragment extends Fragment {
 
     private String findNearestPlaceName(double lat, double lng, List<VisitedPlace> visitedPlaces) {
         VisitedPlace nearest = null;
-        double minDistance = 0.001; // Approx 100 meters
+        double minDistance = 0.001;
         for (VisitedPlace vp : visitedPlaces) {
             double dLat = lat - vp.latitude;
             double dLng = lng - vp.longitude;
@@ -242,6 +205,22 @@ public class HomeFragment extends Fragment {
             }
         }
         return (nearest != null) ? nearest.category : null;
+    }
+
+    private long getStartOfToday() {
+        Calendar c = Calendar.getInstance();
+        c.set(Calendar.HOUR_OF_DAY, 0);
+        c.set(Calendar.MINUTE, 0);
+        c.set(Calendar.SECOND, 0);
+        c.set(Calendar.MILLISECOND, 0);
+        return c.getTimeInMillis();
+    }
+
+    private int daysLeftIncludingToday() {
+        Calendar c = Calendar.getInstance();
+        int today = c.get(Calendar.DAY_OF_MONTH);
+        int last = c.getActualMaximum(Calendar.DAY_OF_MONTH);
+        return (last - today) + 1;
     }
 
     @Override

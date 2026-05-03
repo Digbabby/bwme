@@ -58,6 +58,9 @@ public class MapFragment extends Fragment {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    SharedPreferences session = requireContext().getSharedPreferences("UserSession", Context.MODE_PRIVATE);
+    final String loggedInUser = session.getString("username", "");
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -89,7 +92,7 @@ public class MapFragment extends Fragment {
 
         view.findViewById(R.id.btnDelete).setOnClickListener(v -> {
             executor.execute(() -> {
-                AppDatabase.getInstance(getContext()).visitedPlaceDao().deleteAll();
+                AppDatabase.getInstance(requireContext(), loggedInUser).visitedPlaceDao().deleteAll();
                 mainHandler.post(() -> {
                     refreshHistory();
                 });
@@ -223,7 +226,7 @@ public class MapFragment extends Fragment {
             Context ctx = getContext();
             if (ctx == null) return;
 
-            List<VisitedPlace> history = AppDatabase.getInstance(ctx).visitedPlaceDao().getAllPlaces();
+            List<VisitedPlace> history = AppDatabase.getInstance(ctx, loggedInUser).visitedPlaceDao().getAllPlaces();
             SharedPreferences prefs = MainActivity.getUserPrefs(ctx);
             String json = prefs.getString("expenses_json", "[]");
             List<Expense> expenses = new com.google.gson.Gson().fromJson(json, new com.google.gson.reflect.TypeToken<List<Expense>>(){}.getType());

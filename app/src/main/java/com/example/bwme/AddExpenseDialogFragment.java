@@ -320,14 +320,24 @@ public class AddExpenseDialogFragment extends DialogFragment {
             Expense e;
             if (locPair != null && locPair.length >= 2) {
                 e = new Expense(pendingAmount, pendingDesc, time, locPair[0], locPair[1], pendingCategory);
-                
-                // Automatically save to VisitedPlace if a name was provided
+
                 if (!pendingLocationName.isEmpty()) {
                     String date = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date(time));
                     VisitedPlace vp = new VisitedPlace(locPair[0], locPair[1], time, date, pendingLocationName);
+
                     final Context finalCtx = ctx;
+                    final String username = finalCtx
+                            .getSharedPreferences("UserSession", Context.MODE_PRIVATE)
+                            .getString("username", "");
+
                     new Thread(() -> {
-                        AppDatabase.getInstance(finalCtx).visitedPlaceDao().insert(vp);
+                        try {
+                            AppDatabase.getInstance(finalCtx, username)
+                                    .visitedPlaceDao()
+                                    .insert(vp);
+                        } catch (Throwable t) {
+                            Log.w(TAG, "Failed to save visited place", t);
+                        }
                     }).start();
                 }
             } else {
